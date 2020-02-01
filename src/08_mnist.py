@@ -8,8 +8,8 @@ train_X = train_X.reshape((train_X.shape[0], -1))
 test_X = test_X.reshape((test_X.shape[0], -1))
 
 # Normalize pixel data 0~255 to 0.0 to 1.0
-train_X = (train_X - train_X.min()) / (train_X.max() - train_X.min())
-test_X = (test_X - test_X.min()) / (test_X.max() - test_X.min())
+train_X = train_X / 255.0
+test_X = test_X / 255.0
 
 train_Y = tf.keras.utils.to_categorical(train_Y)
 test_Y = tf.keras.utils.to_categorical(test_Y)
