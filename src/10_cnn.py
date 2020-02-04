@@ -11,7 +11,7 @@ test_X = test_X.reshape(-1, 28, 28, 1)
 
 model = tf.keras.Sequential([
     tf.keras.layers.Conv2D(input_shape=(28, 28, 1), kernel_size=(3, 3), filters=32, padding='same', activation='relu'),
-    tf.keras.layers.Conv2D(kernel_size=(3, 3), filters=64, padding='same'),
+    tf.keras.layers.Conv2D(kernel_size=(3, 3), filters=64, padding='same', activation='relu'),
     tf.keras.layers.MaxPool2D(pool_size=(2, 2)),
     tf.keras.layers.Dropout(rate=0.5),
     tf.keras.layers.Conv2D(kernel_size=(3, 3), filters=128, padding='same', activation='relu'),
