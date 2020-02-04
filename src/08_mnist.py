@@ -33,7 +33,7 @@ model = tf.keras.Sequential([
 model.compile(optimizer=tf.keras.optimizers.Adam(lr=0.001), loss='categorical_crossentropy', metrics=['accuracy'])
 model.summary()
 
-history = model.fit(train_X, train_Y, batch_size=1000, epochs=100, verbose=1, validation_split=0.2)
+history = model.fit(train_X, train_Y, batch_size=32, epochs=10, verbose=1, validation_split=0.2, callbacks=[tf.keras.callbacks.EarlyStopping(patience=5, monitor='val_accuracy')])
 
 plt.plot(history.history['accuracy'], 'b-', label='accuracy')
 plt.plot(history.history['val_accuracy'], 'm-', label='val_accuracy')
