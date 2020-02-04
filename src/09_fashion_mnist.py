@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 
 (train_X, train_Y), (test_X, test_Y) = tf.keras.datasets.fashion_mnist.load_data()
 
-train_X = train_X / 255.0;
-test_X = test_X / 255.0;
+train_X = train_X / 255.0
+test_X = test_X / 255.0
 
 model = tf.keras.Sequential([
     tf.keras.layers.Flatten(input_shape=(28, 28)),
