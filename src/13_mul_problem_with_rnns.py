@@ -20,9 +20,11 @@ Y = np.array(Y)
 # print(X[0], Y[0])
 # assert False
 
+# you can also test on LSTM, SimpleRNN
+# by changing   (GRU)↓  to what you want
 model = tf.keras.Sequential([
-    tf.keras.layers.SimpleRNN(units=30, return_sequences=True, input_shape=[100, 2]),
-    tf.keras.layers.SimpleRNN(units=30),
+    tf.keras.layers.GRU(units=30, return_sequences=True, input_shape=[100, 2]),
+    tf.keras.layers.GRU(units=30),
     tf.keras.layers.Dense(units=1)
 ])
 
