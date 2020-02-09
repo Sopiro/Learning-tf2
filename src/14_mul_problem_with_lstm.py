@@ -21,15 +21,15 @@ Y = np.array(Y)
 # assert False
 
 model = tf.keras.Sequential([
-    tf.keras.layers.SimpleRNN(units=30, return_sequences=True, input_shape=[100, 2]),
-    tf.keras.layers.SimpleRNN(units=30),
+    tf.keras.layers.LSTM(units=30, return_sequences=True, input_shape=[100, 2]),
+    tf.keras.layers.LSTM(units=30),
     tf.keras.layers.Dense(units=1)
 ])
 
 model.compile(optimizer='adam', loss='mse')
 model.summary()
 
-history = model.fit(X[:2560], Y[:2560], batch_size=32, epochs=100, validation_split=0.2)
+history = model.fit(X[:2560], Y[:2560], batch_size=32, epochs=100, validation_split=0.2, verbose=1)
 
 plt.plot(history.history['loss'], 'b-', label='loss')
 plt.plot(history.history['val_loss'], 'r--', label='val_loss')
