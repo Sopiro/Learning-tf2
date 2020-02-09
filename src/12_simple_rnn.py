@@ -15,7 +15,7 @@ Y = np.array(Y)
 
 # input_shape=[timesteps, input_dimension]
 model = tf.keras.Sequential([
-    tf.keras.layers.SimpleRNN(units=10, return_sequences=False, input_shape=[4, 1]),
+    tf.keras.layers.SimpleRNN(units=10, activation='tanh', return_sequences=False, input_shape=[4, 1]),
     tf.keras.layers.Dense(units=1, activation='linear')
 ])
 
