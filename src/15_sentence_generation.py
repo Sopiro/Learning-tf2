@@ -78,27 +78,27 @@ model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=
 model.summary()
 
 
-# def testmodel(epoch, logs):
-#     if epoch % 5 != 0 and epoch != 49:
-#         return
-#     test_sentence = train_text[0]
-#
-#     next_words = 100
-#     for _ in range(next_words):
-#         test_text_X = test_sentence.split(' ')[-seq_length:]
-#         test_text_X = np.array([word2idx[c] if c in word2idx else word2idx['UNK'] for c in test_text_X])
-#         test_text_X = pad_sequences([test_text_X], maxlen=seq_length,
-#                                                                     padding='pre', value=word2idx['UNK'])
-#
-#         output_idx = model.predict_classes(test_text_X)
-#         test_sentence += ' ' + idx2word[output_idx[0]]
-#
-#     print()
-#     print(test_sentence)
-#     print()
-#
-#
-# testmodelcb = tf.keras.callbacks.LambdaCallback(on_epoch_end=testmodel)
+def testmodel(epoch, logs):
+    if epoch % 5 != 0 and epoch != 49:
+        return
+    test_sentence = train_text[0]
+
+    next_words = 100
+    for _ in range(next_words):
+        test_text_X = test_sentence.split(' ')[-seq_length:]
+        test_text_X = np.array([word2idx[c] if c in word2idx else word2idx['UNK'] for c in test_text_X])
+        test_text_X = pad_sequences([test_text_X], maxlen=seq_length,
+                                                                    padding='pre', value=word2idx['UNK'])
+
+        output_idx = model.predict_classes(test_text_X)
+        test_sentence += ' ' + idx2word[output_idx[0]]
+
+    print()
+    print(test_sentence)
+    print()
+
+
+testmodelcb = tf.keras.callbacks.LambdaCallback(on_epoch_end=testmodel)
 
 history = model.fit(train_dataset.repeat(), epochs=50, steps_per_epoch=steps_per_epoch, callbacks=[testmodelcb],
                     verbose=2)
