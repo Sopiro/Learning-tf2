@@ -98,6 +98,8 @@ def testmodel(epoch, logs):
 
 testmodelcb = tf.keras.callbacks.LambdaCallback(on_epoch_end=testmodel)
 
+# count – (Optional.) A `tf.int64` scalar `tf.Tensor`, representing the number of times the dataset should be repeated.
+# The default behavior (if `count` is `None` or `-1`) is for the dataset be repeated indefinitely.
 history = model.fit(train_dataset.repeat(), epochs=50, steps_per_epoch=steps_per_epoch, callbacks=[testmodelcb],
                     verbose=1)
 
