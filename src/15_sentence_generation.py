@@ -103,6 +103,8 @@ testmodelcb = tf.keras.callbacks.LambdaCallback(on_epoch_end=testmodel)
 history = model.fit(train_dataset.repeat(), epochs=50, steps_per_epoch=steps_per_epoch, callbacks=[testmodelcb],
                     verbose=1)
 
+# Actual testing.
+# Letting RNN generate sentences for initial test_sentence
 test_sentence = '동헌에 나가 공무를 본 후 활 십오 순을 쏘았다'
 
 next_words = 100
