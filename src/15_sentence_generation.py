@@ -10,14 +10,12 @@ train_text = open(path_to_file, 'rb').read().decode(encoding='utf-8')
 
 # From https://github.com/yoonkim/CNN_sentence/blob/master/process_data.py
 def clean_str(string):
-    string = re.sub(r"[^가-힣A-Za-z0-9(),!?\'\`]", " ", string)
-    string = re.sub(r"\'ll", " \'ll", string)
+    string = re.sub(r"[^가-힣0-9(),!?\'\`]", " ", string)
     string = re.sub(r",", " , ", string)
     string = re.sub(r"!", " ! ", string)
     string = re.sub(r"\(", "", string)
     string = re.sub(r"\)", "", string)
     string = re.sub(r"\?", " \? ", string)
-    string = re.sub(r"\s{2,}", " ", string)
     string = re.sub(r"\'{2,}", "\'", string)
     string = re.sub(r"\'", "", string)
 
@@ -88,7 +86,7 @@ def testmodel(epoch, logs):
         test_text_X = test_sentence.split(' ')[-seq_length:]
         test_text_X = np.array([word2idx[c] if c in word2idx else word2idx['UNK'] for c in test_text_X])
         test_text_X = pad_sequences([test_text_X], maxlen=seq_length,
-                                                                    padding='pre', value=word2idx['UNK'])
+                                    padding='pre', value=word2idx['UNK'])
 
         output_idx = model.predict_classes(test_text_X)
         test_sentence += ' ' + idx2word[output_idx[0]]
@@ -101,8 +99,7 @@ def testmodel(epoch, logs):
 testmodelcb = tf.keras.callbacks.LambdaCallback(on_epoch_end=testmodel)
 
 history = model.fit(train_dataset.repeat(), epochs=50, steps_per_epoch=steps_per_epoch, callbacks=[testmodelcb],
-                    verbose=2)
-
+                    verbose=1)
 
 test_sentence = '동헌에 나가 공무를 본 후 활 십오 순을 쏘았다'
 
