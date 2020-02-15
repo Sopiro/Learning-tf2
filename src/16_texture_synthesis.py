@@ -5,8 +5,8 @@ import IPython.display as display
 import time
 import imageio
 
-# style_path = tf.keras.utils.get_file('style.jpg', 'http://bit.ly/2mGfZIq')
-style_path = tf.keras.utils.get_file('style2.jpg', '')
+style_path = tf.keras.utils.get_file('style.jpg', 'http://bit.ly/2mGfZIq')
+# style_path = tf.keras.utils.get_file('style2.jpg', '')
 
 style_image = plt.imread(style_path)
 style_image = cv2.resize(style_image, dsize=(224, 224))
@@ -96,8 +96,8 @@ def total_variation_loss(image):
 
 opt = tf.keras.optimizers.Adam(learning_rate=0.2, beta_1=0.99, epsilon=1e-1)
 
-total_variation_weight = 1e-9
-style_weight = 1e-1
+total_variation_weight = 1e8
+style_weight = 1e-2
 
 
 @tf.function()
