@@ -9,6 +9,7 @@ test_X = test_X / 255.0
 train_X = train_X.reshape(-1, 28, 28, 1)
 test_X = test_X.reshape(-1, 28, 28, 1)
 
+# VGG-19 Style CNN
 model = tf.keras.Sequential([
     tf.keras.layers.Conv2D(input_shape=(28, 28, 1), kernel_size=(3, 3), filters=32, padding='same', activation='relu'),
     tf.keras.layers.Conv2D(kernel_size=(3, 3), filters=64, padding='same', activation='relu'),
