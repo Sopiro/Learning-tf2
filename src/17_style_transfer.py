@@ -4,29 +4,33 @@ import cv2
 import IPython.display as display
 import time
 import imageio
-import numpy as np
 
-# Download image from URL and store it to keras's cache folder (C:\Users\(UserName)\.keras\datasets)
-# style_image_path = tf.keras.utils.get_file('style.jpg', 'http://bit.ly/2mGfZIq')
-style_image_path = tf.keras.utils.get_file('stn.jpg', '')
+# Download images from URL and store it to keras's cache folder (C:\Users\(UserName)\.keras\datasets)
+style_image_path = tf.keras.utils.get_file('style.jpg', 'http://bit.ly/2mGfZIq')
+content_path = tf.keras.utils.get_file('content.jpg', 'http://bit.ly/2mAfUX1')
 
+# Pre-Processing for style image
 style_image = plt.imread(style_image_path)
 style_image = cv2.resize(style_image, dsize=(256, 256))
 style_image = style_image / 255.0
 
-# Initialize target image with random noise
-target_image = np.random.uniform(size=(256, 256, 3))
-# target_image[:, :, 0] = target_image[:, :, 0] * 0
-# target_image[:, :, 1] = target_image[:, :, 1] * 0
-
-# plt.imshow(target_image)
+# Pre-Processing for content image
+content_image = plt.imread(content_path)
+max_dim = 512
+long_dim = max(content_image.shape[:-1])
+scale = max_dim / long_dim
+new_height = int(content_image.shape[0] * scale)
+new_width = int(content_image.shape[1] * scale)
+content_image = cv2.resize(content_image, dsize=(new_width, new_height))
+content_image = content_image / 255.0
+# plt.imshow(content_image)
 # plt.show()
-# assert False
 
-# target_image = tf.random.uniform(shape=(128, 128, 1))
+# Initialize target image with random noise
+target_image = tf.random.uniform(shape=(new_height, new_width, 3))
 # target_image = tf.image.grayscale_to_rgb(target_image)
-# target_image = tf.image.resize(target_image, (256, 256))
-#
+# target_image = tf.image.resize(target_image, (512, 512))
+
 # plt.imshow(target_image)
 # plt.show()
 # assert False
@@ -43,11 +47,15 @@ conv_layers_for_style = ['block1_conv1',
                          'block3_conv1',
                          'block4_conv1',
                          'block5_conv1']
+conv_layers_for_content = ['block5_conv2']
 
 # Extract convolution layer outputs and set to model's output
 vgg.trainable = False
-conv_outs = [vgg.get_layer(name).output for name in conv_layers_for_style]
-model = tf.keras.Model(inputs=[vgg.input], outputs=conv_outs)
+conv_outs_for_style = [vgg.get_layer(name).output for name in conv_layers_for_style]
+model_for_style = tf.keras.Model(inputs=[vgg.input], outputs=conv_outs_for_style)
+
+conv_outs_for_content = [vgg.get_layer(name).output for name in conv_layers_for_content]
+model_for_content = tf.keras.Model(inputs=[vgg.input], outputs=conv_outs_for_content)
 
 
 # Calculate gram matrix of Convolution outputs
@@ -62,14 +70,18 @@ def gram_matrix(tensor):
 # Process forward to network
 style_batch = style_image.astype('float32')
 style_batch = tf.expand_dims(style_batch, axis=0)  # Insert dimension for batching
-style_output = model.call(tf.keras.applications.vgg19.preprocess_input(style_batch * 255.0))
+style_output = model_for_style.call(tf.keras.applications.vgg19.preprocess_input(style_batch * 255.0))
+
+content_batch = content_image.astype('float32')
+content_batch = tf.expand_dims(content_batch, axis=0)
+content_output = model_for_content(tf.keras.applications.vgg19.preprocess_input(content_batch * 255.0))
 
 # Visualize convolution layer output
 # print(style_output[0].shape)
 # plt.imshow(tf.squeeze(style_output[0][:, :, :, 0], 0), cmap='gray')
 # plt.show()
 
-style_outputs = [gram_matrix(out) for out in style_output]
+style_gram_matrices = [gram_matrix(out) for out in style_output]
 
 
 # plt.figure(figsize=(12, 10))
@@ -83,15 +95,15 @@ style_outputs = [gram_matrix(out) for out in style_output]
 
 
 # Calculate and get gram matrices of target image
-def get_outputs(image):
+def get_style_outputs(image):
     image_batch = tf.expand_dims(image, axis=0)
-    output = model(tf.keras.applications.vgg19.preprocess_input(image_batch * 255.0))
+    output = model_for_style(tf.keras.applications.vgg19.preprocess_input(image_batch * 255.0))
     outputs = [gram_matrix(out) for out in output]
     return outputs
 
 
-# Calculate MSE loss between target texture and style texture
-def get_loss(outputs, style_outputs):
+# Calculate MSE loss about gram between target texture and style texture
+def get_style_loss(outputs, style_outputs):
     return tf.reduce_sum([tf.reduce_mean((o - s) ** 2) for o, s in zip(outputs, style_outputs)])
 
 
@@ -110,10 +122,22 @@ def total_variation_loss(image):
     return tf.reduce_mean(x_deltas ** 2) + tf.reduce_mean(y_deltas ** 2)
 
 
-opt = tf.keras.optimizers.Adam(learning_rate=0.02, beta_1=0.99, epsilon=1e-1)
+def get_content_output(image):
+    image_batch = tf.expand_dims(image, axis=0)
+    output = model_for_content(tf.keras.applications.vgg19.preprocess_input(image_batch * 255.0))
+    return output
 
-total_variation_weight = 1e11
+
+# Calculate MSE loss about pixel data between target texture and style texture
+def get_content_loss(image, content_output):
+    return tf.reduce_sum(tf.reduce_mean(image - content_output) ** 2)
+
+
+opt = tf.keras.optimizers.Adam(learning_rate=0.001, beta_1=0.99, epsilon=1e-1)
+
+total_variation_weight = 1e10
 style_weight = 1e-1
+content_weight = 1e5
 
 
 # Use tensorflow's autograph function.
@@ -124,8 +148,12 @@ style_weight = 1e-1
 @tf.function
 def train_step(image):
     with tf.GradientTape() as tape:
-        outputs = get_outputs(image)
-        loss = style_weight * get_loss(outputs, style_outputs) + total_variation_weight * total_variation_loss(image)
+        style_gram_outputs = get_style_outputs(image)
+        content_conv_output = get_content_output(image)
+
+        loss = style_weight * get_style_loss(style_gram_outputs, style_gram_matrices)
+        loss += total_variation_weight * total_variation_loss(image)
+        loss += content_weight * get_content_loss(content_conv_output, content_output)
 
     grad = tape.gradient(loss, image)
     opt.apply_gradients(grads_and_vars=[(grad, image)])
@@ -134,7 +162,9 @@ def train_step(image):
 
 start = time.time()
 
-image = tf.Variable(target_image, dtype='float32')
+# You can choose to start from whether random noise or content image.
+image = tf.Variable(content_image.astype('float32'))
+# image = tf.Variable(target_image.astype('float32'))
 
 epochs = 50
 step_per_epoch = 100
@@ -146,12 +176,13 @@ for n in range(epochs):
         train_step(image)
 
     if n % 10 == 0:
-        imageio.imwrite('../systhesis_result/epoch_{0}.png'.format(n), image.read_value().numpy())
+        imageio.imwrite('../transfer_result/epoch_{0}.png'.format(n), image.read_value().numpy())
 
-imageio.imwrite('../systhesis_result/result.png', image.read_value().numpy())
+imageio.imwrite('../transfer_result/result.png', image.read_value().numpy())
 
 display.clear_output(wait=True)
 plt.imshow(image.read_value())
+plt.title("Total Train steps : {}".format(step))
 plt.show()
 
 end = time.time()
