@@ -162,7 +162,7 @@ def train_step(image):
 
 start = time.time()
 
-# You can choose to start from whether random noise or content image.
+# You can choose to start from random noise or content image.
 image = tf.Variable(content_image.astype('float32'))
 # image = tf.Variable(target_image.astype('float32'))
 
