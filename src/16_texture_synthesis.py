@@ -112,7 +112,7 @@ def total_variation_loss(image):
 
 opt = tf.keras.optimizers.Adam(learning_rate=0.02, beta_1=0.99, epsilon=1e-1)
 
-total_variation_weight = 1e11
+total_variation_weight = 1e9
 style_weight = 1e-1
 
 

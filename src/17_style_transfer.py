@@ -5,18 +5,22 @@ import IPython.display as display
 import time
 import imageio
 
+preserve_color = False
+
 # Download images from URL and store it to keras's cache folder (C:\Users\(UserName)\.keras\datasets)
-style_image_path = tf.keras.utils.get_file('style.jpg', 'http://bit.ly/2mGfZIq')
-content_path = tf.keras.utils.get_file('content.jpg', 'http://bit.ly/2mAfUX1')
+# style_image_path = tf.keras.utils.get_file('style.jpg', 'http://bit.ly/2mGfZIq')
+# content_path = tf.keras.utils.get_file('content.jpg', 'http://bit.ly/2mAfUX1')
+style_image_path = tf.keras.utils.get_file('oil.jpg', '')
+content_path = tf.keras.utils.get_file('pinkflower.jpg', '')
 
 # Pre-Processing for style image
 style_image = plt.imread(style_image_path)
-style_image = cv2.resize(style_image, dsize=(256, 256))
+style_image = cv2.resize(style_image, dsize=(1024, 1024))
 style_image = style_image / 255.0
 
 # Pre-Processing for content image
 content_image = plt.imread(content_path)
-max_dim = 512
+max_dim = 1024
 long_dim = max(content_image.shape[:-1])
 scale = max_dim / long_dim
 new_height = int(content_image.shape[0] * scale)
@@ -69,6 +73,8 @@ def gram_matrix(tensor):
 
 # Process forward to network
 style_batch = style_image.astype('float32')
+if preserve_color:
+    style_batch = tf.image.grayscale_to_rgb(tf.image.rgb_to_grayscale(style_batch))
 style_batch = tf.expand_dims(style_batch, axis=0)  # Insert dimension for batching
 style_output = model_for_style.call(tf.keras.applications.vgg19.preprocess_input(style_batch * 255.0))
 
@@ -135,8 +141,8 @@ def get_content_loss(image, content_output):
 
 opt = tf.keras.optimizers.Adam(learning_rate=0.001, beta_1=0.99, epsilon=1e-1)
 
-total_variation_weight = 1e10
-style_weight = 1e-1
+total_variation_weight = 1e9
+style_weight = 1e-2
 content_weight = 1e5
 
 
