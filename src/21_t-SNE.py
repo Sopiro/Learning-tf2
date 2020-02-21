@@ -1,7 +1,7 @@
 import tensorflow as tf
 import matplotlib.pyplot as plt
-import numpy as np
 from sklearn.manifold import TSNE
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
 (train_X, train_Y), (test_X, test_Y) = tf.keras.datasets.mnist.load_data()
 
@@ -32,17 +32,19 @@ latent_vector = latent_vector_model(train_X)
 # print(latent_vector.shape)
 # print(latent_vector[0])
 
-perplexities = [5, 10, 15, 25, 50, 100]
-plt.figure(figsize=(8, 12))
+plt.figure(figsize=(16, 16))
 
-for c in range(6):
-    tsne = TSNE(n_components=2, learning_rate=100, perplexity=perplexities[c], random_state=0)
-    tsne_vector = tsne.fit_transform(latent_vector[:5000])
-    print(tsne_vector.shape)
-    print(tsne_vector[0])
+tsne = TSNE(n_components=2, learning_rate=100, perplexity=15, random_state=0)
+tsne_vector = tsne.fit_transform(latent_vector[:5000])
 
-    plt.subplot(3, 2, c + 1)
-    plt.scatter(tsne_vector[:, 0], tsne_vector[:, 1], marker='.', c=train_Y[:5000], cmap='rainbow')  # c means color
-    plt.title('perplexity : {}'.format(perplexities[c]))
+ax = plt.subplot(1, 1, 1)
+ax.scatter(tsne_vector[:, 0], tsne_vector[:, 1], marker='.', c=train_Y[:5000], cmap='rainbow')
 
+for i in range(200):
+    imagebox = OffsetImage(train_X[i].reshape(28, 28))
+    ab = AnnotationBbox(imagebox, (tsne_vector[i, 0], tsne_vector[i, 1]), frameon=False, pad=0.0)
+    ax.add_artist(ab)
+
+ax.set_xticks([])
+ax.set_yticks([])
 plt.show()
