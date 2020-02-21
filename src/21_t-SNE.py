@@ -38,9 +38,11 @@ plt.figure(figsize=(8, 12))
 for c in range(6):
     tsne = TSNE(n_components=2, learning_rate=100, perplexity=perplexities[c], random_state=0)
     tsne_vector = tsne.fit_transform(latent_vector[:5000])
+    print(tsne_vector.shape)
+    print(tsne_vector[0])
 
     plt.subplot(3, 2, c + 1)
-    plt.scatter(tsne_vector[:, 0], tsne_vector[:, 1], marker='.', c=train_Y[:5000], cmap='rainbow')
+    plt.scatter(tsne_vector[:, 0], tsne_vector[:, 1], marker='.', c=train_Y[:5000], cmap='rainbow')  # c means color
     plt.title('perplexity : {}'.format(perplexities[c]))
 
 plt.show()
