@@ -32,15 +32,15 @@ latent_vector = latent_vector_model(train_X)
 # print(latent_vector.shape)
 # print(latent_vector[0])
 
-tsne = TSNE(n_components=2, learning_rate=100, perplexity=15, random_state=0)
-tsne_vector = tsne.fit_transform(latent_vector[:5000])
+perplexities = [5, 10, 15, 25, 50, 100]
+plt.figure(figsize=(8, 12))
 
-cmap = plt.get_cmap('rainbow', 10)
-fig = plt.scatter(tsne_vector[:, 0], tsne_vector[:, 1], marker='.', c=train_Y[:5000], cmap=cmap)
-cb = plt.colorbar(fig, ticks=range(10))
-n_clusters = 10
-tick_locs = (np.arange(n_clusters) + 0.5) * (n_clusters - 1) / n_clusters
-cb.set_ticks(tick_locs)
-cb.set_ticklabels(range(10))
+for c in range(6):
+    tsne = TSNE(n_components=2, learning_rate=100, perplexity=perplexities[c], random_state=0)
+    tsne_vector = tsne.fit_transform(latent_vector[:5000])
+
+    plt.subplot(3, 2, c + 1)
+    plt.scatter(tsne_vector[:, 0], tsne_vector[:, 1], marker='.', c=train_Y[:5000], cmap='rainbow')
+    plt.title('perplexity : {}'.format(perplexities[c]))
 
 plt.show()
