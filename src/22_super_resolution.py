@@ -2,6 +2,7 @@ import tensorflow as tf
 import pathlib
 import numpy as np
 import matplotlib.pyplot as plt
+import random
 
 # Download BSD-500 dataset
 # 200 for train, 100 for validation, 200 for test
@@ -40,14 +41,35 @@ def get_hr_and_lr(image_path):
     return lr, hr
 
 
+# Dataset reinforcement. flip and down scale 4 times
+def get_hr_and_lr_flip_s4(image_path):
+    img = tf.io.read_file(image_path)
+    img = tf.image.decode_jpeg(img, channels=3)
+    img = tf.image.convert_image_dtype(img, tf.float32)
+
+    hr = tf.image.random_crop(img, [50, 50, 3])
+    lr = tf.image.resize(hr, [12, 12])
+    lr = tf.image.resize(lr, [50, 50])
+
+    if random.random() < 0.25:
+        hr = tf.image.flip_left_right(hr)
+        lr = tf.image.flip_left_right(lr)
+
+    if random.random() < 0.25:
+        hr = tf.image.flip_up_down(hr)
+        lr = tf.image.flip_up_down(lr)
+
+    return lr, hr
+
+
 batch_size = 16
 train_ds = tf.data.Dataset.list_files(train_path)
-train_ds = train_ds.map(get_hr_and_lr)
+train_ds = train_ds.map(get_hr_and_lr_flip_s4)
 train_ds = train_ds.repeat()
 train_ds = train_ds.batch(batch_size)
 
 valid_ds = tf.data.Dataset.list_files(valid_path)
-valid_ds = valid_ds.map(get_hr_and_lr)
+valid_ds = valid_ds.map(get_hr_and_lr_flip_s4)
 valid_ds = valid_ds.repeat()
 valid_ds = valid_ds.batch(1)
 
@@ -146,7 +168,7 @@ lr = tf.image.resize(hr, [hr.shape[0] // down_scale, hr.shape[1] // down_scale])
 lr = tf.image.resize(lr, [hr.shape[0], hr.shape[1]])
 
 predict_hr = model.predict(np.expand_dims(lr, 0))
-print(tf.image.psnr(np.squeeze(predict_hr, 0), hr, max_val= 1.0))
+print(tf.image.psnr(np.squeeze(predict_hr, 0), hr, max_val=1.0))
 print(tf.image.psnr(lr, hr, max_val=1.0))
 
 plt.figure(figsize=(16, 4))
