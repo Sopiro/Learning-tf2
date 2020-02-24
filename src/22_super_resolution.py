@@ -89,8 +89,7 @@ def REDNet(num_layers):
         deconv_layers.append(
             tf.keras.layers.Conv2DTranspose(filters=64, kernel_size=3, padding='same', activation='relu'))
 
-    deconv_layers.append(
-        tf.keras.layers.Conv2DTranspose(filters=3, kernel_size=3, padding='same', activation='relu'))
+    deconv_layers.append(tf.keras.layers.Conv2DTranspose(filters=3, kernel_size=3, padding='same'))
 
     # Encoder
     x = conv_layers[0](input_layer)
