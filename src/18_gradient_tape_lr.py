@@ -10,24 +10,29 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=0.2)
 
 
 @tf.function
-def train(v):
-    with tf.GradientTape() as tape:
-        tape.watch(v)
-        pred = v[0] * X + v[1]
+def train(v1, v2):
+    with tf.GradientTape(persistent=True) as tape:
+        tape.watch(v1)
+        tape.watch(v2)
+        pred = v1 * X + v2
         loss = tf.reduce_mean((Y - pred) ** 2)
 
-    grad = tape.gradient(loss, v)
-    tf.print(grad, output_stream=sys.stdout)
-    optimizer.apply_gradients(grads_and_vars=[(grad, v)])
+    grad1 = tape.gradient(loss, v1)
+    grad2 = tape.gradient(loss, v2)
+    # tf.print(grad1, output_stream=sys.stdout)
+    # tf.print(grad2, output_stream=sys.stdout)
+    optimizer.apply_gradients(grads_and_vars=[(grad1, v1), (grad2, v2)])
+    del tape
 
 
-v = tf.Variable(tf.random.uniform((2,)))
+v1 = tf.Variable(tf.random.uniform(shape=(1,)))
+v2 = tf.Variable(tf.random.uniform(shape=(1,)))
 
 for i in range(1000):
-    train(v)
+    train(v1, v2)
 
 line_x = np.arange(min(X), max(X), 0.01)
-line_y = v[0] * line_x + v[1]
+line_y = v1 * line_x + v2
 
 plt.plot(line_x, line_y, 'r-')
 plt.plot(X, Y, 'bo')
