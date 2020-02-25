@@ -7,7 +7,7 @@ import time
 (train_images, _), _ = tf.keras.datasets.mnist.load_data()
 
 train_images = train_images.reshape(train_images.shape[0], 28, 28, 1).astype('float32')
-train_images = (train_images - 127.5) / 127.5  # Normalize the images to [-1, 1]
+train_images = train_images / 255.0
 
 BUFFER_SIZE = 60000
 BATCH_SIZE = 256
@@ -30,7 +30,7 @@ generator = tf.keras.Sequential([
     tf.keras.layers.LeakyReLU(),
 
     tf.keras.layers.Conv2DTranspose(1, kernel_size=(5, 5), strides=(2, 2), padding='same', use_bias=False),
-    tf.keras.layers.Activation('tanh')
+    tf.keras.layers.Activation('sigmoid')
 ])
 
 # generator.summary()
@@ -72,16 +72,18 @@ def loss_g(fake_output):
     return fake_loss
 
 
-generator_optimizer = tf.keras.optimizers.Adam(1e-4)
-discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
-epochs = 0
+optimizer_g = tf.keras.optimizers.Adam(1e-4)
+optimizer_d = tf.keras.optimizers.Adam(1e-4)
+
+EPOCHS = 10
 
 checkpoint_dir = './training_checkpoints'
 checkpoint_prefix = os.path.join(checkpoint_dir, 'ckpt')
-checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
-                                 discriminator_optimizer=discriminator_optimizer,
+checkpoint = tf.train.Checkpoint(optimizer_g=optimizer_g,
+                                 optimizer_d=optimizer_d,
                                  generator=generator,
-                                 discriminator=discriminator)
+                                 discriminator=discriminator,
+                                 epochs=tf.Variable(0))
 checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
 
 noise_dim = 100
@@ -103,27 +105,27 @@ def train_step(images):
         gen_loss = loss_g(fake_output)
         disc_loss = loss_d(real_output, fake_output)
 
-
     gen_grad = gen_tape.gradient(gen_loss, generator.trainable_variables)
     disk_grad = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
 
-    generator_optimizer.apply_gradients(zip(gen_grad, generator.trainable_variables))
-    discriminator_optimizer.apply_gradients(zip(disk_grad, discriminator.trainable_variables))
+    optimizer_g.apply_gradients(zip(gen_grad, generator.trainable_variables))
+    optimizer_d.apply_gradients(zip(disk_grad, discriminator.trainable_variables))
 
 
 def train(dataset, epochs):
     for epoch in range(epochs):
         start = time.time()
+        checkpoint.epochs.assign_add(1)
 
         for image_batch in dataset:
             train_step(image_batch)
 
         generate_and_save_images(generator, epoch + 1, seed)
 
-        if (epoch + 1) % 5 == 0:
+        if (epoch + 1) % 10 == 0:
             checkpoint.save(file_prefix=checkpoint_prefix)
 
-        print('Time for epoch {} is {} sec'.format(epoch + 1, time.time() - start))
+        print('Time for epoch {} is {} sec'.format(checkpoint.epochs.numpy(), time.time() - start))
 
     generate_and_save_images(generator, epochs, seed)
 
@@ -144,7 +146,7 @@ def generate_and_save_images(model, epoch, test_input, show=False):
     plt.close(fig)
 
 
-# train(train_dataset, epochs.numpy())
+train(train_dataset, EPOCHS)
 
 for i in range(1):
-    generate_and_save_images(generator, 123, tf.random.normal([num_examples_to_generate, noise_dim]), True)
+    generate_and_save_images(generator, 1000 + i, tf.random.normal([num_examples_to_generate, noise_dim]), True)
