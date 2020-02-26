@@ -1,5 +1,4 @@
 import tensorflow as tf
-import numpy as np
 import matplotlib.pyplot as plt
 import os
 import time
@@ -62,12 +61,14 @@ bce = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 # print(tf.ones_like(tf.random.normal((10, 10))))
 
 
+# Recognize real as real, fake as fake
 def loss_d(real_output, fake_output):
     real_loss = bce(tf.ones_like(real_output), real_output)
     fake_loss = bce(tf.zeros_like(fake_output), fake_output)
     return real_loss + fake_loss
 
 
+# Recognize fake as real
 def loss_g(fake_output):
     fake_loss = bce(tf.ones_like(fake_output), fake_output)
     return fake_loss
