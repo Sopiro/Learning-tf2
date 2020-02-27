@@ -74,8 +74,8 @@ def loss_g(fake_output):
     return fake_loss
 
 
-optimizer_g = tf.keras.optimizers.Adam(1e-4)
-optimizer_d = tf.keras.optimizers.Adam(1e-4)
+optimizer_g = tf.keras.optimizers.Adam(2e-4, beta_1=0.5, beta_2=0.999)
+optimizer_d = tf.keras.optimizers.Adam(2e-4, beta_1=0.5, beta_2=0.999)
 
 EPOCHS = 30
 
