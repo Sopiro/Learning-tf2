@@ -79,7 +79,7 @@ optimizer_d = tf.keras.optimizers.Adam(2e-4, beta_1=0.5, beta_2=0.999)
 
 EPOCHS = 30
 
-checkpoint_dir = './training_checkpoints'
+checkpoint_dir = '../gan_training_checkpoints'
 checkpoint_prefix = os.path.join(checkpoint_dir, 'ckpt')
 checkpoint = tf.train.Checkpoint(optimizer_g=optimizer_g,
                                  optimizer_d=optimizer_d,
