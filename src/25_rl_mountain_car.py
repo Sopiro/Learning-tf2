@@ -11,28 +11,28 @@ env = gym.make('MountainCar-v0')
 # print(env.action_space)
 # print(env._max_episode_steps)
 
-step = 0
-score = 0
+for i in range(10):
+    step = 0
+    score = 0
 
-action = 2
-pre_obs = env.reset()
+    action = 0
+    pre_obs = env.reset()
 
-while True:
-    obs, reward, done, info = env.step(action)
-    # print(observation, reward, done, info)
+    while True:
+        obs, reward, done, info = env.step(action)
+        # print(observation, reward, done, info)
 
-    if pre_obs[1] * obs[1] < 0:
-        print(pre_obs[1], obs[1])
-        action = 0 if action == 2 else 2
+        if pre_obs[1] * obs[1] < 0:
+            action = 0 if action == 2 else 2
 
-    pre_obs = obs
-    score += reward
-    step += 1
-    env.render()
+        pre_obs = obs
+        score += reward
+        step += 1
+        env.render()
 
-    if done:
-        break
+        if done:
+            break
 
-env.close()
-print('score:', score)
-print('step:', step)
+    env.close()
+    print('score:', score)
+    print('step:', step)
