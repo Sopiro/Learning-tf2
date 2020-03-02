@@ -13,13 +13,19 @@ env = gym.make('MountainCar-v0')
 
 step = 0
 score = 0
-env.reset()
+
+action = 2
+pre_obs = env.reset()
 
 while True:
-    action = env.action_space.sample()
-    observation, reward, done, info = env.step(action)
-    print(observation, reward, done, info)
+    obs, reward, done, info = env.step(action)
+    # print(observation, reward, done, info)
 
+    if pre_obs[1] * obs[1] < 0:
+        print(pre_obs[1], obs[1])
+        action = 0 if action == 2 else 2
+
+    pre_obs = obs
     score += reward
     step += 1
     env.render()
