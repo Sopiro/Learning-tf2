@@ -4,3 +4,5 @@ systhesis_result
 transfer_result
 gan_training_checkpoints
 gan_result
+dqn_weights
+ckpt_test

@@ -56,15 +56,51 @@ def build_model():
 model = build_model()
 target_model = build_model()
 
+model.load_weights('../dqn_weights/dqn_weights_model')
+target_model.load_weights('../dqn_weights/dqn_weights_target')
+
 gamma = 0.9
 batch_size = 512
-max_memory = batch_size * 8  # batches per epoch would be 8
+max_memory = batch_size * 64  # batches per epoch would be 64
 replay_memory = []
 
+action_swap_array = [[0, 0, 2, 2, 1, 3, 1, 3],
+                     [1, 3, 1, 3, 0, 0, 2, 2],
+                     [2, 2, 0, 0, 3, 1, 3, 1],
+                     [3, 1, 3, 1, 2, 2, 0, 0]]
 
-# Append transition : (state, action, reward, next_state, done)
-def append_sample(s0, a, r, s1, d):
-    replay_memory.append([s0, a, r, s1, d])
+
+# Append transition with image reinforcement
+def append_sample(state, action, reward, next_state, done):
+    g0 = state
+    g1 = g0[::-1, :, :]
+    g2 = g0[:, ::-1, :]
+    g3 = g2[::-1, :, :]
+    r0 = state.swapaxes(0, 1)
+    r1 = r0[::-1, :, :]
+    r2 = r0[:, ::-1, :]
+    r3 = r2[::-1, :, :]
+
+    g00 = next_state
+    g10 = g00[::-1, :, :]
+    g20 = g00[:, ::-1, :]
+    g30 = g20[::-1, :, :]
+    r00 = next_state.swapaxes(0, 1)
+    r10 = r00[::-1, :, :]
+    r20 = r00[:, ::-1, :]
+    r30 = r20[::-1, :, :]
+
+    states = [g0, g1, g2, g3, r0, r1, r2, r3]
+    next_states = [g00, g10, g20, g30, r00, r10, r20, r30]
+
+    for i in range(8):
+        replay_memory.append([
+            states[i],
+            action_swap_array[action][i],
+            reward,
+            next_states[i],
+            done
+        ])
 
 
 def train_model():
@@ -114,7 +150,7 @@ def softmax(logits):
     return exp_logits / sum_exp_logits
 
 
-max_episodes = 10001
+max_episodes = 10
 epsilon = 0.9
 epsilon_min = 0.01
 
@@ -198,6 +234,10 @@ for i in range(max_episodes):
 
     print(i, 'score:', score, 'step:', step, 'max', np.max(obs), 'memory len:', len(replay_memory))
 
+model.save_weights('../dqn_weights/dqn_weights_model')
+target_model.save_weights('../dqn_weights/dqn_weights_target')
+print(scores)
+
 N = 100
 rolling_mean = [np.mean(scores[i:i + N]) for i in range(len(scores) - N + 1)]
 
@@ -214,7 +254,7 @@ iteration = 0
 train_count = 0
 
 # Do test
-for i in range(1000):
+for i in range(0):
     if i % 100 == 0 and i != 0:
         print('score mean:', np.mean(scores[-100:]),
               'step mean:', np.mean(steps[-100:]),
@@ -255,5 +295,5 @@ for i in range(1000):
             break
 
     test_scores.append(score)
-    print(i, 'score:', score, 'step:', step, 'max', np.max(obs), 'memory len:', len(replay_memory))
-    print(max_tile)
+    print(i, 'score:', score, 'step:', step, 'max', np.max(obs))
+print(max_tile)
