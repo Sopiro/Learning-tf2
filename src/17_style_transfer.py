@@ -11,7 +11,7 @@ preserve_color = False
 # style_image_path = tf.keras.utils.get_file('style.jpg', 'http://bit.ly/2mGfZIq')
 # content_path = tf.keras.utils.get_file('content.jpg', 'http://bit.ly/2mAfUX1')
 style_image_path = tf.keras.utils.get_file('oil.jpg', '')
-content_path = tf.keras.utils.get_file('pinkflower.jpg', '')
+content_path = tf.keras.utils.get_file('mina.jpg', '')
 
 # Pre-Processing for style image
 style_image = plt.imread(style_image_path)
@@ -20,7 +20,7 @@ style_image = style_image / 255.0
 
 # Pre-Processing for content image
 content_image = plt.imread(content_path)
-max_dim = 1024
+max_dim = 512
 long_dim = max(content_image.shape[:-1])
 scale = max_dim / long_dim
 new_height = int(content_image.shape[0] * scale)
@@ -43,14 +43,25 @@ target_image = tf.random.uniform(shape=(new_height, new_width, 3))
 vgg = tf.keras.applications.VGG19(include_top=False, weights='imagenet')
 
 # Check out the layers
-# for layer in vgg.layers:
-#     print(layer.name)
+for layer in vgg.layers:
+    print(layer.name)
 
 conv_layers_for_style = ['block1_conv1',
+                         'block1_conv2',
                          'block2_conv1',
+                         'block2_conv2',
                          'block3_conv1',
+                         'block3_conv2',
+                         'block3_conv3',
+                         'block3_conv4',
                          'block4_conv1',
-                         'block5_conv1']
+                         'block4_conv2',
+                         'block4_conv3',
+                         'block4_conv4',
+                         'block5_conv1',
+                         'block5_conv2',
+                         'block5_conv3',
+                         'block5_conv4']
 conv_layers_for_content = ['block5_conv2']
 
 # Extract convolution layer outputs and set to model's output
@@ -76,7 +87,7 @@ style_batch = style_image.astype('float32')
 if preserve_color:
     style_batch = tf.image.grayscale_to_rgb(tf.image.rgb_to_grayscale(style_batch))
 style_batch = tf.expand_dims(style_batch, axis=0)  # Insert dimension for batching
-style_output = model_for_style.call(tf.keras.applications.vgg19.preprocess_input(style_batch * 255.0))
+style_output = model_for_style(tf.keras.applications.vgg19.preprocess_input(style_batch * 255.0))
 
 content_batch = content_image.astype('float32')
 content_batch = tf.expand_dims(content_batch, axis=0)
@@ -141,9 +152,9 @@ def get_content_loss(image, content_output):
 
 opt = tf.keras.optimizers.Adam(learning_rate=0.001, beta_1=0.99, epsilon=1e-1)
 
-total_variation_weight = 1e9
-style_weight = 1e-2
-content_weight = 1e5
+total_variation_weight = 2e9
+style_weight = 2e-2
+content_weight = 2e8
 
 
 # Use tensorflow's autograph function.
