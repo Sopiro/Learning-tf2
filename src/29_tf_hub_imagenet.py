@@ -24,7 +24,7 @@ label_text = np.array(label_text)
 m.build([None, 229, 229, 3])  # Batch input shape.
 
 img = cv2.imread(img)
-img = cv2.resize(img, dsize=(224, 224))
+img = cv2.resize(img, dsize=(229, 229))
 img = img / 255.0
 img = np.expand_dims(img, axis=0)
 
