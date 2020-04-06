@@ -4,12 +4,12 @@ import numpy as np
 import cv2
 
 labels = tf.keras.utils.get_file('imagenet_labels.txt', 'https://storage.googleapis.com/download.tensorflow.org/data/ImageNetLabels.txt')
-img = tf.keras.utils.get_file('ipod.jpg', 'https://i.etsystatic.com/19007236/r/il/dd3a32/2133570822/il_570xN.2133570822_qkhj.jpg')
+img = tf.keras.utils.get_file('elephant.jpg', 'https://upload.wikimedia.org/wikipedia/commons/5/59/Serengeti_Elefantenbulle.jpg')
 
-url = 'https://tfhub.dev/google/tf2-preview/mobilenet_v2/classification/4'
+url = 'https://tfhub.dev/google/imagenet/inception_v3/classification/4'
 
 m = tf.keras.Sequential([
-    hub.KerasLayer(handle=url, output_shape=[1001])
+    hub.KerasLayer(handle=url)
 ])
 
 label_text = None
@@ -21,7 +21,7 @@ label_text = np.array(label_text)
 # print(label_text[:10])
 
 
-m.build([None, 224, 224, 3])  # Batch input shape.
+m.build([None, 229, 229, 3])  # Batch input shape.
 
 img = cv2.imread(img)
 img = cv2.resize(img, dsize=(224, 224))
