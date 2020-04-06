@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 path_to_train_file = tf.keras.utils.get_file('train.txt',
                                              'https://raw.githubusercontent.com/e9t/nsmc/master/ratings_train.txt')
-path_to_test_file = tf.keras.utils.get_file('train.txt',
+path_to_test_file = tf.keras.utils.get_file('test.txt',
                                             'https://raw.githubusercontent.com/e9t/nsmc/master/ratings_test.txt')
 
 train_text = open(path_to_train_file, 'rb').read().decode(encoding='utf-8')
@@ -113,7 +113,7 @@ test_X = tf.keras.preprocessing.sequence.pad_sequences(test_X, padding='post')
 
 model.evaluate(test_X, test_Y)
 
-test_sentence = '내가 만들어도 이것보단 재밌겠다'
+test_sentence = 'ㅋㅋ 잘도 만들었다 ^^'
 test_sentence = test_sentence.split(' ')
 test_sentences = []
 now_sentence = []
