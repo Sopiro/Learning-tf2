@@ -11,11 +11,24 @@ from sklearn.utils import shuffle
 import re
 import numpy as np
 import os
+from tqdm import tqdm
 import time
 import json
 from glob import glob
 from PIL import Image
 import pickle
+
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        # Currently, memory growth needs to be the same across GPUs
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+    except RuntimeError as e:
+        # Memory growth must be set before GPUs have been initialized
+        print(e)
 
 # Download caption annotation files
 annotation_folder = '/annotations/'
@@ -59,21 +72,44 @@ for annot in annotations['annotations']:
 
 # Shuffle captions and image_names together
 # Set a random state
-train_captions, img_name_vector = shuffle(all_captions,
-                                          all_img_name_vector,
-                                          random_state=1)
+train_captions, img_name_vector = shuffle(all_captions, all_img_name_vector, random_state=1)
 
 # Select the first 30000 captions from the shuffled set
-num_examples = 30000
-train_captions = train_captions[:num_examples]
-img_name_vector = img_name_vector[:num_examples]
+# num_examples = 30000
+# train_captions = train_captions[:num_examples]
+# img_name_vector = img_name_vector[:num_examples]
+
 
 # print(len(train_captions), len(all_captions));
 
 
+# Function for preprocessing
 def load_image(image_path):
     img = tf.io.read_file(image_path)
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.resize(img, (299, 299))
     img = tf.keras.applications.inception_v3.preprocess_input(img)
     return img, image_path
+
+
+# Initialize Inception-V3 with pretrained weight
+image_model = tf.keras.applications.InceptionV3(include_top=False, weights='imagenet')
+new_input = image_model.input
+hidden_layer = image_model.layers[-1].output
+
+image_features_extract_model = tf.keras.Model(new_input, hidden_layer)
+
+# Make unique with sorted(set)
+encode_train = sorted(set(img_name_vector))
+
+image_dataset = tf.data.Dataset.from_tensor_slices(encode_train)
+image_dataset = image_dataset.map(load_image, num_parallel_calls=tf.data.experimental.AUTOTUNE).batch(16)
+
+# Disk-caching the features extracted from InceptionV3
+# for img, path in tqdm(image_dataset):
+#     batch_features = image_features_extract_model(img)
+#     batch_features = tf.reshape(batch_features, (batch_features.shape[0], -1, batch_features.shape[3]))
+#
+#     for bf, p in zip(batch_features, path):
+#         path_of_feature = p.numpy().decode("utf-8")
+#         np.save(path_of_feature, bf.numpy())
