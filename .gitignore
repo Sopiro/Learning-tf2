@@ -6,5 +6,6 @@ gan_training_checkpoints
 gan_result
 dqn_weights
 ckpt_test
-src/annotations
-src/train2014
+src/image_captioning/annotations
+src/image_captioning/train2014
+src/image_captioning/checkpoints
