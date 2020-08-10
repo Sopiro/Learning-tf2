@@ -150,6 +150,7 @@ img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vec
 # print(len(img_name_train), len(cap_train), len(img_name_val), len(cap_val))
 # print(cap_train[:5])
 
+EPOCHS_TO_SAVE = 2
 BATCH_SIZE = 64
 BUFFER_SIZE = 1000
 embedding_dim = 256
@@ -205,7 +206,7 @@ ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
 
 start_epoch = 0
 if ckpt_manager.latest_checkpoint:
-    start_epoch = int(ckpt_manager.latest_checkpoint.split('-')[-1])
+    start_epoch = int(ckpt_manager.latest_checkpoint.split('-')[-1]) * EPOCHS_TO_SAVE
     # restoring the latest checkpoint in checkpoint_path
     ckpt.restore(ckpt_manager.latest_checkpoint)
 
@@ -225,6 +226,7 @@ def train_step(img_tensor, target):
     hidden = decoder.reset_state(batch_size=target.shape[0])
 
     dec_input = tf.expand_dims([tokenizer.word_index['<start>']] * target.shape[0], 1)
+    print(dec_input)
 
     with tf.GradientTape() as tape:
         features = encoder(img_tensor)
@@ -251,9 +253,9 @@ def train_step(img_tensor, target):
 
 print('Start training')
 
-EPOCHS = 20
+EPOCHS = 1
 
-for epoch in range(start_epoch, EPOCHS):
+for epoch in range(EPOCHS):
     start = time.time()
     total_loss = 0
 
@@ -267,7 +269,7 @@ for epoch in range(start_epoch, EPOCHS):
     # storing the epoch end loss value to plot later
     loss_plot.append(total_loss / num_steps)
 
-    if epoch % 2 == 0:
+    if epoch % EPOCHS_TO_SAVE == 0:
         ckpt_manager.save()
 
     print('Epoch {} Loss {:.6f}'.format(epoch + 1,
@@ -338,3 +340,17 @@ result, attention_plot = evaluate(image)
 print('Real Caption:', real_caption)
 print('Prediction Caption:', ' '.join(result))
 plot_attention(image, result, attention_plot)
+
+# assert False
+
+image_url = 'https://tensorflow.org/images/surf.jpg'
+# image_url = 'https://upload.wikimedia.org/wikipedia/commons/4/45/A_small_cup_of_coffee.JPG'
+image_extension = image_url[-4:]
+image_path = tf.keras.utils.get_file('image' + image_extension,
+                                     origin=image_url)
+
+result, attention_plot = evaluate(image_path)
+print('Prediction Caption:', ' '.join(result))
+plot_attention(image_path, result, attention_plot)
+# opening the image
+Image.open(image_path)
