@@ -129,6 +129,14 @@ tokenizer.fit_on_texts(train_captions)
 tokenizer.word_index['<pad>'] = 0
 tokenizer.index_word[0] = '<pad>'
 
+# print(tokenizer.index_word[0])  # <pad>
+# print(tokenizer.index_word[1])  # <unk>
+# print(tokenizer.index_word[2])  # a
+# print(tokenizer.index_word[3])  # <start>
+# print(tokenizer.index_word[4])  # <end>
+# print(tokenizer.index_word[5])  # on
+# assert False
+
 # Create the tokenized vectors
 train_seqs = tokenizer.texts_to_sequences(train_captions)
 
@@ -139,7 +147,7 @@ train_seqs = tokenizer.texts_to_sequences(train_captions)
 cap_vector = tf.keras.preprocessing.sequence.pad_sequences(train_seqs, padding='post')
 
 # Calculates the max_length, which is used to store the attention weights
-max_length = calc_max_length(train_seqs)
+max_length = calc_max_length(train_seqs)  # 49
 
 # Create training and validation sets using an 80-20 split
 img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vector,
@@ -148,15 +156,20 @@ img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vec
                                                                     random_state=0)
 
 # print(len(img_name_train), len(cap_train), len(img_name_val), len(cap_val))
+# (24000, 24000, 6000, 6000)
+
+# print(img_name_train[:5])
 # print(cap_train[:5])
+# assert False
 
 EPOCHS_TO_SAVE = 2
-BATCH_SIZE = 64
-BUFFER_SIZE = 1000
+BATCH_SIZE = 240
+BUFFER_SIZE = 2400
 embedding_dim = 256
 units = 512
 vocab_size = top_k + 1
-num_steps = len(img_name_train) // BATCH_SIZE
+steps_per_epoch = len(img_name_train) // BATCH_SIZE
+
 # Shape of the vector extracted from InceptionV3 is (64, 2048)
 # These two variables represent that vector shape
 features_shape = 2048
@@ -177,18 +190,20 @@ dataset = dataset.map(lambda item1, item2:
                       num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
 # Shuffle and batch
-dataset = dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
+dataset = dataset.shuffle(BUFFER_SIZE, reshuffle_each_iteration=True).batch(BATCH_SIZE)
 dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
 encoder = models.CNN_Encoder(embedding_dim)
 decoder = models.RNN_Decoder(embedding_dim, units, vocab_size)
 
-optimizer = tf.keras.optimizers.Adam()
+optimizer = tf.keras.optimizers.Adam(learning_rate=0.002)
 loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
 
 
 def loss_function(real, pred):
-    mask = tf.math.logical_not(tf.math.equal(real, 0))
+    # real = (batch_size,) = (240,)
+    # pred = (batch_size, top_k + 1) = (240, 5001)
+    mask = tf.math.logical_not(tf.math.equal(real, 0))  # Mask to skip <pad>
     loss_ = loss_object(real, pred)
 
     mask = tf.cast(mask, dtype=loss_.dtype)
@@ -210,27 +225,25 @@ if ckpt_manager.latest_checkpoint:
     # restoring the latest checkpoint in checkpoint_path
     ckpt.restore(ckpt_manager.latest_checkpoint)
 
-print('Start Epoch : ', start_epoch)
 
-# adding this in a separate cell because if you run the training cell
-# many times, the loss_plot array will be reset
-loss_plot = []
-
-
-@tf.function
+# @tf.function
 def train_step(img_tensor, target):
     loss = 0
 
-    # initializing the hidden state for each batch
-    # because the captions are not related from image to image
-    hidden = decoder.reset_state(batch_size=target.shape[0])
+    # print(img_tensor) # shape = (240, 64, 2048) = (batch_size, attention_features_shape, features_shape)
+    # print(target) # shape = (240, 49) = (batch_size, max_length)
 
+    # initializing the hidden state for each batch because the captions are not related from image to image
+    hidden = decoder.reset_state(batch_size=target.shape[0])  # shape = (batch_size, units)
+
+    # (batch_size, <start>), shape = (240, 1)
     dec_input = tf.expand_dims([tokenizer.word_index['<start>']] * target.shape[0], 1)
-    print(dec_input)
 
     with tf.GradientTape() as tape:
-        features = encoder(img_tensor)
+        # Encode InceptionV3 features into embedding vector
+        features = encoder(img_tensor)  # shape = (batch_size, 64, embedding_dim) = (240, 64, 256)
 
+        # Start from index 1 to jump the start token
         for i in range(1, target.shape[1]):
             # passing the features through the decoder
             predictions, hidden, _ = decoder(dec_input, features, hidden)
@@ -240,7 +253,7 @@ def train_step(img_tensor, target):
             # using teacher forcing
             dec_input = tf.expand_dims(target[:, i], 1)
 
-    total_loss = (loss / int(target.shape[1]))
+    avg_loss = (loss / int(target.shape[1]))
 
     trainable_variables = encoder.trainable_variables + decoder.trainable_variables
 
@@ -248,32 +261,35 @@ def train_step(img_tensor, target):
 
     optimizer.apply_gradients(zip(gradients, trainable_variables))
 
-    return loss, total_loss
+    return avg_loss
 
 
-print('Start training')
-
+loss_plot = []
 EPOCHS = 1
+REPORT_PER_EPOCH = 10
+print('Start Epoch = ', start_epoch)
+print('Start training for {} epochs'.format(EPOCHS))
+print('Batch Size = ', BATCH_SIZE)
+print('Steps per epoch = ', steps_per_epoch)
 
 for epoch in range(EPOCHS):
     start = time.time()
     total_loss = 0
 
     for (batch, (img_tensor, target)) in enumerate(dataset):
-        batch_loss, t_loss = train_step(img_tensor, target)
-        total_loss += t_loss
+        batch_loss = train_step(img_tensor, target)
+        total_loss += batch_loss
 
-        if batch % 100 == 0:
-            print('Epoch {} Batch {} Loss {:.4f}'.format(
-                epoch + 1, batch, batch_loss.numpy() / int(target.shape[1])))
+        if batch % (steps_per_epoch / REPORT_PER_EPOCH) == 0:
+            print('Epoch {} Batch {} Loss {:.4f}'.format(epoch + 1, batch, batch_loss))
+
     # storing the epoch end loss value to plot later
-    loss_plot.append(total_loss / num_steps)
+    loss_plot.append(total_loss / steps_per_epoch)
 
-    if epoch % EPOCHS_TO_SAVE == 0:
+    if (epoch + 1) % EPOCHS_TO_SAVE == 0:
         ckpt_manager.save()
 
-    print('Epoch {} Loss {:.6f}'.format(epoch + 1,
-                                        total_loss / num_steps))
+    print('Epoch {} Loss {:.6f}'.format(epoch + 1, total_loss / steps_per_epoch))
     print('Time taken for 1 epoch {} sec\n'.format(time.time() - start))
 
 plt.plot(loss_plot)
@@ -346,8 +362,7 @@ plot_attention(image, result, attention_plot)
 image_url = 'https://tensorflow.org/images/surf.jpg'
 # image_url = 'https://upload.wikimedia.org/wikipedia/commons/4/45/A_small_cup_of_coffee.JPG'
 image_extension = image_url[-4:]
-image_path = tf.keras.utils.get_file('image' + image_extension,
-                                     origin=image_url)
+image_path = tf.keras.utils.get_file('image' + image_extension, origin=image_url)
 
 result, attention_plot = evaluate(image_path)
 print('Prediction Caption:', ' '.join(result))

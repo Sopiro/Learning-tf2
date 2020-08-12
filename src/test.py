@@ -16,4 +16,12 @@ import tensorflow as tf
 #
 # print(aa[-3:])
 
-print(tf.math.logical_not(tf.math.equal([1, 3, 4, 5, 0, 1, 0, 12, 4, 6], 0)))
+a = tf.ones(shape=(10,), dtype=tf.float32)
+b = tf.random.normal(shape=(10,), dtype=tf.float32)
+
+print(a)
+print(b)
+
+a = a + b
+
+print(a)
