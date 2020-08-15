@@ -74,7 +74,7 @@ for annot in annotations['annotations']:
 train_captions, img_name_vector = shuffle(all_captions, all_img_name_vector, random_state=1)
 
 # Select the first 30000 captions from the shuffled set
-num_examples = 30000
+num_examples = 50000
 train_captions = train_captions[:num_examples]
 img_name_vector = img_name_vector[:num_examples]
 
@@ -140,7 +140,8 @@ tokenizer.index_word[0] = '<pad>'
 # Create the tokenized vectors
 train_seqs = tokenizer.texts_to_sequences(train_captions)
 
-# print(train_seqs[:5])
+# print(train_seqs[:500])
+# assert False
 
 # Pad each vector to the max_length of the captions
 # If you do not provide a max_length value, pad_sequences calculates it automatically
@@ -163,7 +164,7 @@ img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vec
 # assert False
 
 EPOCHS_TO_SAVE = 2
-BATCH_SIZE = 240
+BATCH_SIZE = 400
 BUFFER_SIZE = 2400
 embedding_dim = 256
 units = 512
@@ -226,7 +227,7 @@ if ckpt_manager.latest_checkpoint:
     ckpt.restore(ckpt_manager.latest_checkpoint)
 
 
-# @tf.function
+@tf.function
 def train_step(img_tensor, target):
     loss = 0
 
@@ -236,7 +237,7 @@ def train_step(img_tensor, target):
     # initializing the hidden state for each batch because the captions are not related from image to image
     hidden = decoder.reset_state(batch_size=target.shape[0])  # shape = (batch_size, units)
 
-    # (batch_size, <start>), shape = (240, 1)
+    # (batch_size, '<start>'), shape = (batch_size, 1)
     dec_input = tf.expand_dims([tokenizer.word_index['<start>']] * target.shape[0], 1)
 
     with tf.GradientTape() as tape:
@@ -246,6 +247,7 @@ def train_step(img_tensor, target):
         # Start from index 1 to jump the start token
         for i in range(1, target.shape[1]):
             # passing the features through the decoder
+            # predictions shape = (batch_size, vocab_size)
             predictions, hidden, _ = decoder(dec_input, features, hidden)
 
             loss += loss_function(target[:, i], predictions)
@@ -265,8 +267,8 @@ def train_step(img_tensor, target):
 
 
 loss_plot = []
-EPOCHS = 1
-REPORT_PER_EPOCH = 10
+EPOCHS = 2
+REPORT_PER_EPOCH = 5
 print('Start Epoch = ', start_epoch)
 print('Start training for {} epochs'.format(EPOCHS))
 print('Batch Size = ', BATCH_SIZE)
@@ -289,7 +291,7 @@ for epoch in range(EPOCHS):
     if (epoch + 1) % EPOCHS_TO_SAVE == 0:
         ckpt_manager.save()
 
-    print('Epoch {} Loss {:.6f}'.format(epoch + 1, total_loss / steps_per_epoch))
+    print('Epoch {} Loss {:.6f}'.format(start_epoch + epoch + 1, total_loss / steps_per_epoch))
     print('Time taken for 1 epoch {} sec\n'.format(time.time() - start))
 
 plt.plot(loss_plot)
@@ -300,25 +302,29 @@ plt.show()
 
 
 def evaluate(image):
-    attention_plot = np.zeros((max_length, attention_features_shape))
+    attention_plot = np.zeros(shape=(max_length, attention_features_shape))
 
-    hidden = decoder.reset_state(batch_size=1)
-
-    temp_input = tf.expand_dims(load_image(image)[0], 0)
+    temp_input = tf.expand_dims(load_image(image)[0], 0)  # Expand batch axis
     img_tensor_val = image_features_extract_model(temp_input)
     img_tensor_val = tf.reshape(img_tensor_val, (img_tensor_val.shape[0], -1, img_tensor_val.shape[3]))
 
-    features = encoder(img_tensor_val)
+    features = encoder(img_tensor_val)  # shape = (1, 64, embedding_dim)
 
+    hidden = decoder.reset_state(batch_size=1)
     dec_input = tf.expand_dims([tokenizer.word_index['<start>']], 0)
     result = []
 
     for i in range(max_length):
         predictions, hidden, attention_weights = decoder(dec_input, features, hidden)
 
+        print(tf.reshape(attention_weights, (-1,)).shape)
+
         attention_plot[i] = tf.reshape(attention_weights, (-1,)).numpy()
 
+        plt.plot(predictions)
+
         predicted_id = tf.random.categorical(predictions, 1)[0][0].numpy()
+        # predicted_id = tf.argmax(predictions).numpy()
         result.append(tokenizer.index_word[predicted_id])
 
         if tokenizer.index_word[predicted_id] == '<end>':

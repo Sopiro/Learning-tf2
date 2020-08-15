@@ -11,19 +11,20 @@ class BahdanauAttention(tf.keras.Model):
     def call(self, features, hidden):
         # features(CNN_encoder output) shape == (batch_size, 64, embedding_dim)
 
-        # hidden shape == (batch_size, hidden_size)
+        # hidden shape == (batch_size, hidden_size) == (batch_size, units)
         # hidden_with_time_axis shape == (batch_size, 1, hidden_size)
         hidden_with_time_axis = tf.expand_dims(hidden, 1)
 
-        # score shape == (batch_size, 64, hidden_size)
+        # Bahdanau Score function = tanh( W1 * key + W2 * query )
+        # score shape == (batch_size, 64, hidden_size), Matrix broadcasting works in here
         score = tf.nn.tanh(self.W1(features) + self.W2(hidden_with_time_axis))
 
         # attention_weights shape == (batch_size, 64, 1)
         # you get 1 at the last axis because you are applying score to self.V
         attention_weights = tf.nn.softmax(self.V(score), axis=1)
 
-        # context_vector shape after sum == (batch_size, hidden_size)
-        context_vector = attention_weights * features
+        # context_vector shape after sum == (batch_size, embedding_dim)
+        context_vector = attention_weights * features  # Matrix broadcasting works in here
         context_vector = tf.reduce_sum(context_vector, axis=1)
 
         return context_vector, attention_weights
@@ -65,19 +66,21 @@ class RNN_Decoder(tf.keras.Model):
         # x shape after passing through embedding == (batch_size, 1, embedding_dim)
         x = self.embedding(x)
 
-        # x shape after concatenation == (batch_size, 1, embedding_dim + hidden_size)
+        # x shape after concatenation == (batch_size, 1, embedding_dim + embedding_dim)
         x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
 
         # passing the concatenated vector to the GRU
+        # output shape = (batch_size, 1, hidden_size)
+        # state shape = (batch_size, hidden_size)
         output, state = self.gru(x)
 
-        # shape == (batch_size, max_length, hidden_size)
+        # shape == (batch_size, 1, hidden_size)
         x = self.fc1(output)
 
-        # x shape == (batch_size * max_length, hidden_size)
+        # x shape == (batch_size, hidden_size)
         x = tf.reshape(x, (-1, x.shape[2]))
 
-        # output shape == (batch_size * max_length, vocab)
+        # shape == (batch_size, vocab)
         x = self.fc2(x)
 
         return x, state, attention_weights
