@@ -267,7 +267,7 @@ def train_step(img_tensor, target):
 
 
 loss_plot = []
-EPOCHS = 2
+EPOCHS = 0
 REPORT_PER_EPOCH = 5
 print('Start Epoch = ', start_epoch)
 print('Start training for {} epochs'.format(EPOCHS))
@@ -317,14 +317,10 @@ def evaluate(image):
     for i in range(max_length):
         predictions, hidden, attention_weights = decoder(dec_input, features, hidden)
 
-        print(tf.reshape(attention_weights, (-1,)).shape)
-
         attention_plot[i] = tf.reshape(attention_weights, (-1,)).numpy()
 
-        plt.plot(predictions)
-
-        predicted_id = tf.random.categorical(predictions, 1)[0][0].numpy()
-        # predicted_id = tf.argmax(predictions).numpy()
+        # predicted_id = tf.random.categorical(predictions, 1)[0][0].numpy()
+        predicted_id = tf.argmax(predictions[0]).numpy()
         result.append(tokenizer.index_word[predicted_id])
 
         if tokenizer.index_word[predicted_id] == '<end>':
@@ -354,21 +350,23 @@ def plot_attention(image, result, attention_plot):
 
 
 # captions on the validation set
-rid = np.random.randint(0, len(img_name_val))
-image = img_name_val[rid]
-real_caption = ' '.join([tokenizer.index_word[i] for i in cap_val[rid] if i not in [0]])
-result, attention_plot = evaluate(image)
+for it in range(10):
+    rid = np.random.randint(0, len(img_name_val))
+    image = img_name_val[rid]
+    real_caption = ' '.join([tokenizer.index_word[i] for i in cap_val[rid] if i not in [0]])
+    result, attention_plot = evaluate(image)
 
-print('Real Caption:', real_caption)
-print('Prediction Caption:', ' '.join(result))
-plot_attention(image, result, attention_plot)
+    print('Real Caption:', real_caption)
+    print('Prediction Caption:', ' '.join(result))
+    plot_attention(image, result, attention_plot)
 
 # assert False
 
-image_url = 'https://tensorflow.org/images/surf.jpg'
-# image_url = 'https://upload.wikimedia.org/wikipedia/commons/4/45/A_small_cup_of_coffee.JPG'
+# image_url = 'https://tensorflow.org/images/surf.jpg'
+image_url = 'https://upload.wikimedia.org/wikipedia/commons/4/45/A_small_cup_of_coffee.JPG'
+# image_url = 'https://post-phinf.pstatic.net/MjAxOTAyMTVfMjc2/MDAxNTUwMjA4NzE2MTIy.-Cae85qV570pF0FsWyoF2P4oEdooap7xS5vyfr3cGXUg.UaJFjECmhav26t5L985R9eg_cVS8zEDmyj_ihBrPR3wg.JPEG/3.jpg?type=w1200'
 image_extension = image_url[-4:]
-image_path = tf.keras.utils.get_file('image' + image_extension, origin=image_url)
+image_path = tf.keras.utils.get_file('image3' + image_extension, origin=image_url)
 
 result, attention_plot = evaluate(image_path)
 print('Prediction Caption:', ' '.join(result))
