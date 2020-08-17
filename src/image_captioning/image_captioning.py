@@ -73,10 +73,11 @@ for annot in annotations['annotations']:
 # Set a random state, which always guaranteed to have the same shuffle
 train_captions, img_name_vector = shuffle(all_captions, all_img_name_vector, random_state=1)
 
+
 # Select the first 30000 captions from the shuffled set
-num_examples = 50000
-train_captions = train_captions[:num_examples]
-img_name_vector = img_name_vector[:num_examples]
+# num_examples = 400000
+# train_captions = train_captions[:num_examples]
+# img_name_vector = img_name_vector[:num_examples]
 
 
 # print(len(train_captions), len(all_captions))  # 30000 414113
@@ -121,8 +122,8 @@ def calc_max_length(tensor):
 
 
 # Choose the top 5000 words from the vocabulary
-top_k = 5000
-tokenizer = tf.keras.preprocessing.text.Tokenizer(num_words=top_k, oov_token="<unk>", filters='!"#$%&()*+.,-/:;=?@[\]^_`{|}~ ')
+num_words = 10000
+tokenizer = tf.keras.preprocessing.text.Tokenizer(num_words=num_words, oov_token="<unk>", filters='!"#$%&()*+.,-/:;=?@[\]^_`{|}~ ')
 tokenizer.fit_on_texts(train_captions)
 # train_seqs = tokenizer.texts_to_sequences(train_captions)
 
@@ -163,12 +164,12 @@ img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vec
 # print(cap_train[:5])
 # assert False
 
-EPOCHS_TO_SAVE = 2
+EPOCHS_TO_SAVE = 1
 BATCH_SIZE = 400
-BUFFER_SIZE = 2400
-embedding_dim = 256
+BUFFER_SIZE = 1024
+embedding_dim = 128
 units = 512
-vocab_size = top_k + 1
+vocab_size = num_words + 1
 steps_per_epoch = len(img_name_train) // BATCH_SIZE
 
 # Shape of the vector extracted from InceptionV3 is (64, 2048)
@@ -197,7 +198,7 @@ dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 encoder = models.CNN_Encoder(embedding_dim)
 decoder = models.RNN_Decoder(embedding_dim, units, vocab_size)
 
-optimizer = tf.keras.optimizers.Adam(learning_rate=0.002)
+optimizer = tf.keras.optimizers.Adam()
 loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
 
 
@@ -218,7 +219,7 @@ checkpoint_path = "./checkpoints/train"
 ckpt = tf.train.Checkpoint(encoder=encoder,
                            decoder=decoder,
                            optimizer=optimizer)
-ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
+ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=3)
 
 start_epoch = 0
 if ckpt_manager.latest_checkpoint:
@@ -267,8 +268,8 @@ def train_step(img_tensor, target):
 
 
 loss_plot = []
-EPOCHS = 0
-REPORT_PER_EPOCH = 5
+EPOCHS = 1
+REPORT_PER_BATCH = 100
 print('Start Epoch = ', start_epoch)
 print('Start training for {} epochs'.format(EPOCHS))
 print('Batch Size = ', BATCH_SIZE)
@@ -282,8 +283,8 @@ for epoch in range(EPOCHS):
         batch_loss = train_step(img_tensor, target)
         total_loss += batch_loss
 
-        if batch % (steps_per_epoch / REPORT_PER_EPOCH) == 0:
-            print('Epoch {} Batch {} Loss {:.4f}'.format(epoch + 1, batch, batch_loss))
+        if batch % REPORT_PER_BATCH == 0:
+            print('Epoch {} Batch {}/{} Loss {:.4f}'.format(epoch + 1, batch, steps_per_epoch, batch_loss))
 
     # storing the epoch end loss value to plot later
     loss_plot.append(total_loss / steps_per_epoch)
@@ -362,11 +363,11 @@ for it in range(10):
 
 # assert False
 
-# image_url = 'https://tensorflow.org/images/surf.jpg'
-image_url = 'https://upload.wikimedia.org/wikipedia/commons/4/45/A_small_cup_of_coffee.JPG'
+image_url = 'https://tensorflow.org/images/surf.jpg'
+# image_url = 'https://upload.wikimedia.org/wikipedia/commons/4/45/A_small_cup_of_coffee.JPG'
 # image_url = 'https://post-phinf.pstatic.net/MjAxOTAyMTVfMjc2/MDAxNTUwMjA4NzE2MTIy.-Cae85qV570pF0FsWyoF2P4oEdooap7xS5vyfr3cGXUg.UaJFjECmhav26t5L985R9eg_cVS8zEDmyj_ihBrPR3wg.JPEG/3.jpg?type=w1200'
 image_extension = image_url[-4:]
-image_path = tf.keras.utils.get_file('image3' + image_extension, origin=image_url)
+image_path = tf.keras.utils.get_file('image' + image_extension, origin=image_url)
 
 result, attention_plot = evaluate(image_path)
 print('Prediction Caption:', ' '.join(result))
