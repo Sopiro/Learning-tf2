@@ -1,0 +1,10 @@
+adam
+BATCH_SIZE = 10
+BUFFER_SIZE = 1024
+embedding_dim = 128
+units = 512
+num_words = 20000
+
+context_vector = attention_weights * features  # Matrix broadcasting works in here
+        # context_vector = tf.reduce_sum(context_vector, axis=1)  # todo: Don't collapse weighted features into one vector
+        context_vector = tf.reshape(context_vector, (context_vector.shape[0], -1))

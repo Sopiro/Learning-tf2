@@ -74,7 +74,7 @@ for annot in annotations['annotations']:
 train_captions, img_name_vector = shuffle(all_captions, all_img_name_vector, random_state=1)
 
 
-# Select the first 30000 captions from the shuffled set
+# Select the first N captions from the shuffled set
 # num_examples = 400000
 # train_captions = train_captions[:num_examples]
 # img_name_vector = img_name_vector[:num_examples]
@@ -122,7 +122,7 @@ def calc_max_length(tensor):
 
 
 # Choose the top 5000 words from the vocabulary
-num_words = 10000
+num_words = 20000
 tokenizer = tf.keras.preprocessing.text.Tokenizer(num_words=num_words, oov_token="<unk>", filters='!"#$%&()*+.,-/:;=?@[\]^_`{|}~ ')
 tokenizer.fit_on_texts(train_captions)
 # train_seqs = tokenizer.texts_to_sequences(train_captions)
@@ -154,18 +154,17 @@ max_length = calc_max_length(train_seqs)  # 49
 # Create training and validation sets using an 80-20 split
 img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vector,
                                                                     cap_vector,
-                                                                    test_size=0.2,
+                                                                    test_size=0.05,
                                                                     random_state=0)
 
 # print(len(img_name_train), len(cap_train), len(img_name_val), len(cap_val))
-# (24000, 24000, 6000, 6000)
 
 # print(img_name_train[:5])
 # print(cap_train[:5])
 # assert False
 
 EPOCHS_TO_SAVE = 1
-BATCH_SIZE = 400
+BATCH_SIZE = 10
 BUFFER_SIZE = 1024
 embedding_dim = 128
 units = 512
@@ -215,11 +214,11 @@ def loss_function(real, pred):
 
 
 # Checkpoints
-checkpoint_path = "./checkpoints/train"
+checkpoint_path = "./checkpoints/train3"
 ckpt = tf.train.Checkpoint(encoder=encoder,
                            decoder=decoder,
                            optimizer=optimizer)
-ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=3)
+ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=10)
 
 start_epoch = 0
 if ckpt_manager.latest_checkpoint:
@@ -268,7 +267,7 @@ def train_step(img_tensor, target):
 
 
 loss_plot = []
-EPOCHS = 1
+EPOCHS = 0
 REPORT_PER_BATCH = 100
 print('Start Epoch = ', start_epoch)
 print('Start training for {} epochs'.format(EPOCHS))
@@ -285,9 +284,10 @@ for epoch in range(EPOCHS):
 
         if batch % REPORT_PER_BATCH == 0:
             print('Epoch {} Batch {}/{} Loss {:.4f}'.format(epoch + 1, batch, steps_per_epoch, batch_loss))
+            loss_plot.append(batch_loss)
 
     # storing the epoch end loss value to plot later
-    loss_plot.append(total_loss / steps_per_epoch)
+    # loss_plot.append(total_loss / steps_per_epoch)
 
     if (epoch + 1) % EPOCHS_TO_SAVE == 0:
         ckpt_manager.save()
@@ -351,7 +351,7 @@ def plot_attention(image, result, attention_plot):
 
 
 # captions on the validation set
-for it in range(10):
+for it in range(0):
     rid = np.random.randint(0, len(img_name_val))
     image = img_name_val[rid]
     real_caption = ' '.join([tokenizer.index_word[i] for i in cap_val[rid] if i not in [0]])
@@ -366,6 +366,7 @@ for it in range(10):
 image_url = 'https://tensorflow.org/images/surf.jpg'
 # image_url = 'https://upload.wikimedia.org/wikipedia/commons/4/45/A_small_cup_of_coffee.JPG'
 # image_url = 'https://post-phinf.pstatic.net/MjAxOTAyMTVfMjc2/MDAxNTUwMjA4NzE2MTIy.-Cae85qV570pF0FsWyoF2P4oEdooap7xS5vyfr3cGXUg.UaJFjECmhav26t5L985R9eg_cVS8zEDmyj_ihBrPR3wg.JPEG/3.jpg?type=w1200'
+# image_url = 'https://raw.githubusercontent.com/yashk2810/Image-Captioning/master/images/frisbee.png'
 image_extension = image_url[-4:]
 image_path = tf.keras.utils.get_file('image' + image_extension, origin=image_url)
 

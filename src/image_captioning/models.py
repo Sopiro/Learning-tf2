@@ -21,7 +21,7 @@ class BahdanauAttention(tf.keras.Model):
 
         # Bahdanau Score function = tanh( W1 * key + W2 * query )
         # score shape == (batch_size, 64, hidden_size), Matrix broadcasting works in here
-        score = tf.nn.tanh(self.W1(features) + self.W2(hidden_with_time_axis1) + self.W2(hidden_with_time_axis2) + self.W2(hidden_with_time_axis3))
+        score = tf.nn.tanh(self.W1(features) + self.W2(hidden_with_time_axis1) + self.W3(hidden_with_time_axis2) + self.W4(hidden_with_time_axis3))
 
         # attention_weights shape == (batch_size, 64, 1)
         # you get 1 at the last axis because you are applying score to self.V
@@ -29,7 +29,8 @@ class BahdanauAttention(tf.keras.Model):
 
         # context_vector shape after sum == (batch_size, embedding_dim)
         context_vector = attention_weights * features  # Matrix broadcasting works in here
-        context_vector = tf.reduce_sum(context_vector, axis=1)
+        # context_vector = tf.reduce_sum(context_vector, axis=1)  # todo: Don't collapse weighted features into one vector
+        context_vector = tf.reshape(context_vector, (context_vector.shape[0], -1))
 
         return context_vector, attention_weights
 
