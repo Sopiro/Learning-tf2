@@ -29,8 +29,7 @@ class BahdanauAttention(tf.keras.Model):
 
         # context_vector shape after sum == (batch_size, embedding_dim)
         context_vector = attention_weights * features  # Matrix broadcasting works in here
-        # context_vector = tf.reduce_sum(context_vector, axis=1)  # todo: Don't collapse weighted features into one vector
-        context_vector = tf.reshape(context_vector, (context_vector.shape[0], -1))
+        context_vector = tf.reduce_sum(context_vector, axis=1)  # Try no collapsing weighted features into one vector
 
         return context_vector, attention_weights
 
@@ -50,27 +49,28 @@ class CNN_Encoder(tf.keras.Model):
 
 
 class RNN_Decoder(tf.keras.Model):
-    def __init__(self, embedding_dim, units, vocab_size):
+    def __init__(self, embedding_dim, rnn_units, fc_units, vocab_size):
         super(RNN_Decoder, self).__init__()
-        self.units = units
+        self.rnn_units = rnn_units
+        self.fc_units = fc_units
 
         self.embedding = tf.keras.layers.Embedding(vocab_size, embedding_dim)
-        self.gru1 = tf.keras.layers.GRU(self.units,
+        self.gru1 = tf.keras.layers.GRU(self.rnn_units,
                                         return_sequences=True,
                                         return_state=True,
                                         recurrent_initializer='glorot_uniform')
-        self.gru2 = tf.keras.layers.GRU(self.units,
+        self.gru2 = tf.keras.layers.GRU(self.rnn_units,
                                         return_sequences=True,
                                         return_state=True,
                                         recurrent_initializer='glorot_uniform')
-        self.gru3 = tf.keras.layers.GRU(self.units,
+        self.gru3 = tf.keras.layers.GRU(self.rnn_units,
                                         return_sequences=True,
                                         return_state=True,
                                         recurrent_initializer='glorot_uniform')
-        self.fc1 = tf.keras.layers.Dense(self.units)
+        self.fc1 = tf.keras.layers.Dense(self.fc_units)
         self.fc2 = tf.keras.layers.Dense(vocab_size)
 
-        self.attention = BahdanauAttention(self.units)
+        self.attention = BahdanauAttention(self.rnn_units)
 
     def call(self, x, features, hidden):
         # defining attention as a separate model
@@ -101,4 +101,4 @@ class RNN_Decoder(tf.keras.Model):
         return x, [state1, state2, state3], attention_weights
 
     def reset_state(self, batch_size):
-        return [tf.zeros((batch_size, self.units)), tf.zeros((batch_size, self.units)), tf.zeros((batch_size, self.units))]
+        return [tf.zeros((batch_size, self.rnn_units)), tf.zeros((batch_size, self.rnn_units)), tf.zeros((batch_size, self.rnn_units))]

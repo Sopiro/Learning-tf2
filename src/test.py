@@ -1,8 +1,8 @@
 import numpy as np
-import tensorflow as tf
+# import tensorflow as tf
 import matplotlib.pyplot as plt
 
-tf.keras.backend.set_floatx('float64')
+# tf.keras.backend.set_floatx('float64')
 
 # w1 = tf.keras.layers.Dense(512)
 # w2 = tf.keras.layers.Dense(512)
@@ -46,7 +46,13 @@ tf.keras.backend.set_floatx('float64')
 #
 # print(b)
 
-for i in range(10):
-    p = tf.random.categorical(([[1., 2., 1., 2., 4., 5., 6., 36., 53., 643., 5., 3., 6., 567., 58., 56., 5., 64.]]), 1)
-    print(p)
-    print(tf.argmax([1., 2., 1., 2., 4., 5., 6., 36., 53., 643., 5., 3., 6., 567., 58., 56., 5., 64.]))
+# for i in range(10):
+#     p = tf.random.categorical(([[1., 2., 1., 2., 4., 5., 6., 36., 53., 643., 5., 3., 6., 567., 58., 56., 5., 64.]]), 1)
+#     print(p)
+#     print(tf.argmax([1., 2., 1., 2., 4., 5., 6., 36., 53., 643., 5., 3., 6., 567., 58., 56., 5., 64.]))
+
+list = ['a', 'b', 'c', 'd']
+
+res = ' '.join(list)
+
+print(res)

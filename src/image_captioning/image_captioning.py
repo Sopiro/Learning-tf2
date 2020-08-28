@@ -59,9 +59,16 @@ with open(annotation_file, 'r') as f:
 all_captions = []
 all_img_name_vector = []
 
-for annot in annotations['annotations']:
+dup = [False] * 600000
+
+for annot in annotations['annotations']:  # ex : {'image_id': 318556, 'id': 48, 'caption': 'A very clean and well decorated empty bathroom'}
     caption = '<start> ' + annot['caption'] + ' <end>'
     image_id = annot['image_id']
+
+    if dup[image_id]:
+        continue
+    dup[image_id] = True
+
     full_coco_image_path = PATH + 'COCO_train2014_' + '%012d.jpg' % (image_id)
 
     all_img_name_vector.append(full_coco_image_path)
@@ -154,7 +161,7 @@ max_length = calc_max_length(train_seqs)  # 49
 # Create training and validation sets using an 80-20 split
 img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vector,
                                                                     cap_vector,
-                                                                    test_size=0.05,
+                                                                    test_size=0.01,
                                                                     random_state=0)
 
 # print(len(img_name_train), len(cap_train), len(img_name_val), len(cap_val))
@@ -164,10 +171,11 @@ img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vec
 # assert False
 
 EPOCHS_TO_SAVE = 1
-BATCH_SIZE = 10
+BATCH_SIZE = 50
 BUFFER_SIZE = 1024
 embedding_dim = 128
-units = 512
+rnn_units = 512
+fc_units = 1024
 vocab_size = num_words + 1
 steps_per_epoch = len(img_name_train) // BATCH_SIZE
 
@@ -195,7 +203,7 @@ dataset = dataset.shuffle(BUFFER_SIZE, reshuffle_each_iteration=True).batch(BATC
 dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
 encoder = models.CNN_Encoder(embedding_dim)
-decoder = models.RNN_Decoder(embedding_dim, units, vocab_size)
+decoder = models.RNN_Decoder(embedding_dim, rnn_units, fc_units, vocab_size)
 
 optimizer = tf.keras.optimizers.Adam()
 loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
@@ -214,7 +222,7 @@ def loss_function(real, pred):
 
 
 # Checkpoints
-checkpoint_path = "./checkpoints/train3"
+checkpoint_path = "./checkpoints/train5"
 ckpt = tf.train.Checkpoint(encoder=encoder,
                            decoder=decoder,
                            optimizer=optimizer)
@@ -267,7 +275,7 @@ def train_step(img_tensor, target):
 
 
 loss_plot = []
-EPOCHS = 0
+EPOCHS = 1
 REPORT_PER_BATCH = 100
 print('Start Epoch = ', start_epoch)
 print('Start training for {} epochs'.format(EPOCHS))
@@ -351,7 +359,7 @@ def plot_attention(image, result, attention_plot):
 
 
 # captions on the validation set
-for it in range(0):
+for it in range(10):
     rid = np.random.randint(0, len(img_name_val))
     image = img_name_val[rid]
     real_caption = ' '.join([tokenizer.index_word[i] for i in cap_val[rid] if i not in [0]])
@@ -368,7 +376,7 @@ image_url = 'https://tensorflow.org/images/surf.jpg'
 # image_url = 'https://post-phinf.pstatic.net/MjAxOTAyMTVfMjc2/MDAxNTUwMjA4NzE2MTIy.-Cae85qV570pF0FsWyoF2P4oEdooap7xS5vyfr3cGXUg.UaJFjECmhav26t5L985R9eg_cVS8zEDmyj_ihBrPR3wg.JPEG/3.jpg?type=w1200'
 # image_url = 'https://raw.githubusercontent.com/yashk2810/Image-Captioning/master/images/frisbee.png'
 image_extension = image_url[-4:]
-image_path = tf.keras.utils.get_file('image' + image_extension, origin=image_url)
+image_path = tf.keras.utils.get_file('elephant' + image_extension, origin=image_url)
 
 result, attention_plot = evaluate(image_path)
 print('Prediction Caption:', ' '.join(result))
