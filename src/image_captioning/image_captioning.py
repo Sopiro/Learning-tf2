@@ -161,7 +161,7 @@ max_length = calc_max_length(train_seqs)  # 49
 # Create training and validation sets using an 80-20 split
 img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vector,
                                                                     cap_vector,
-                                                                    test_size=0.01,
+                                                                    test_size=0.1,
                                                                     random_state=0)
 
 # print(len(img_name_train), len(cap_train), len(img_name_val), len(cap_val))
@@ -171,13 +171,14 @@ img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vec
 # assert False
 
 EPOCHS_TO_SAVE = 1
-BATCH_SIZE = 50
+BATCH_SIZE = 100
 BUFFER_SIZE = 1024
 embedding_dim = 128
 rnn_units = 512
 fc_units = 1024
 vocab_size = num_words + 1
 steps_per_epoch = len(img_name_train) // BATCH_SIZE
+steps_per_epoch_val = len(img_name_val) // BATCH_SIZE
 
 # Shape of the vector extracted from InceptionV3 is (64, 2048)
 # These two variables represent that vector shape
@@ -202,6 +203,14 @@ dataset = dataset.map(lambda item1, item2:
 dataset = dataset.shuffle(BUFFER_SIZE, reshuffle_each_iteration=True).batch(BATCH_SIZE)
 dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
+# Validation dataset
+dataset_val = tf.data.Dataset.from_tensor_slices((img_name_val, cap_val))
+dataset_val = dataset_val.map(lambda item1, item2:
+                              tf.numpy_function(map_func, [item1, item2], [tf.float32, tf.int32]),
+                              num_parallel_calls=tf.data.experimental.AUTOTUNE)
+dataset_val = dataset_val.shuffle(BUFFER_SIZE, reshuffle_each_iteration=True).batch(BATCH_SIZE)
+dataset_val = dataset_val.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+
 encoder = models.CNN_Encoder(embedding_dim)
 decoder = models.RNN_Decoder(embedding_dim, rnn_units, fc_units, vocab_size)
 
@@ -222,7 +231,7 @@ def loss_function(real, pred):
 
 
 # Checkpoints
-checkpoint_path = "./checkpoints/train5"
+checkpoint_path = "./checkpoints/train6"
 ckpt = tf.train.Checkpoint(encoder=encoder,
                            decoder=decoder,
                            optimizer=optimizer)
@@ -274,6 +283,39 @@ def train_step(img_tensor, target):
     return avg_loss
 
 
+@tf.function
+def calc_validation_loss(img_tensor, target):
+    loss = 0
+
+    # print(img_tensor) # shape = (240, 64, 2048) = (batch_size, attention_features_shape, features_shape)
+    # print(target) # shape = (240, 49) = (batch_size, max_length)
+
+    # initializing the hidden state for each batch because the captions are not related from image to image
+    hidden = decoder.reset_state(batch_size=target.shape[0])  # shape = (batch_size, units)
+
+    # (batch_size, '<start>'), shape = (batch_size, 1)
+    dec_input = tf.expand_dims([tokenizer.word_index['<start>']] * target.shape[0], 1)
+
+    with tf.GradientTape() as tape:
+        # Encode InceptionV3 features into embedding vector
+        features = encoder(img_tensor)  # shape = (batch_size, 64, embedding_dim) = (240, 64, 256)
+
+        # Start from index 1 to jump the start token
+        for i in range(1, target.shape[1]):
+            # passing the features through the decoder
+            # predictions shape = (batch_size, vocab_size)
+            predictions, hidden, _ = decoder(dec_input, features, hidden)
+
+            loss += loss_function(target[:, i], predictions)
+
+            # using teacher forcing
+            dec_input = tf.expand_dims(target[:, i], 1)
+
+    avg_loss = (loss / int(target.shape[1]))
+
+    return avg_loss
+
+
 loss_plot = []
 EPOCHS = 1
 REPORT_PER_BATCH = 100
@@ -294,14 +336,19 @@ for epoch in range(EPOCHS):
             print('Epoch {} Batch {}/{} Loss {:.4f}'.format(epoch + 1, batch, steps_per_epoch, batch_loss))
             loss_plot.append(batch_loss)
 
-    # storing the epoch end loss value to plot later
-    # loss_plot.append(total_loss / steps_per_epoch)
+    total_loss_val = 0
+
+    # Print out validation loss
+    for (itr, (img_tensor_val, target_val)) in enumerate(dataset_val):
+        batch_loss_val = calc_validation_loss(img_tensor_val, target_val)
+        total_loss_val += batch_loss_val
+
+    print('Epoch {} Validation Loss {:.6f}'.format(start_epoch + epoch + 1, total_loss_val / steps_per_epoch_val))
+    print('Epoch {} Loss {:.6f}'.format(start_epoch + epoch + 1, total_loss / steps_per_epoch))
+    print('Time taken for 1 epoch {} sec\n'.format(time.time() - start))
 
     if (epoch + 1) % EPOCHS_TO_SAVE == 0:
         ckpt_manager.save()
-
-    print('Epoch {} Loss {:.6f}'.format(start_epoch + epoch + 1, total_loss / steps_per_epoch))
-    print('Time taken for 1 epoch {} sec\n'.format(time.time() - start))
 
 plt.plot(loss_plot)
 plt.xlabel('Epochs')
@@ -376,7 +423,7 @@ image_url = 'https://tensorflow.org/images/surf.jpg'
 # image_url = 'https://post-phinf.pstatic.net/MjAxOTAyMTVfMjc2/MDAxNTUwMjA4NzE2MTIy.-Cae85qV570pF0FsWyoF2P4oEdooap7xS5vyfr3cGXUg.UaJFjECmhav26t5L985R9eg_cVS8zEDmyj_ihBrPR3wg.JPEG/3.jpg?type=w1200'
 # image_url = 'https://raw.githubusercontent.com/yashk2810/Image-Captioning/master/images/frisbee.png'
 image_extension = image_url[-4:]
-image_path = tf.keras.utils.get_file('elephant' + image_extension, origin=image_url)
+image_path = tf.keras.utils.get_file('image' + image_extension, origin=image_url)
 
 result, attention_plot = evaluate(image_path)
 print('Prediction Caption:', ' '.join(result))
