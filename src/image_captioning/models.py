@@ -33,10 +33,10 @@ class BahdanauAttention(tf.keras.Model):
 class CNN_Encoder(tf.keras.Model):
     # Since you have already extracted the features and dumped it using pickle
     # This encoder passes those features through a Fully connected layer
-    def __init__(self, embedding_dim):
+    def __init__(self, feature_dim):
         super(CNN_Encoder, self).__init__()
-        # shape after fc == (batch_size, 64, embedding_dim)
-        self.fc = tf.keras.layers.Dense(embedding_dim)
+        # shape after fc == (batch_size, 64, feature_dim)
+        self.fc = tf.keras.layers.Dense(feature_dim)
 
     def call(self, x):
         x = self.fc(x)
@@ -63,12 +63,13 @@ class RNN_Decoder(tf.keras.Model):
                                         return_sequences=True,
                                         return_state=True,
                                         recurrent_initializer='glorot_uniform')
-        self.fc1 = tf.keras.layers.Dense(self.fc_units)
-        self.fc2 = tf.keras.layers.Dense(vocab_size)
+        self.fc1 = tf.keras.layers.Dense(self.fc_units, kernel_regularizer='l2')
+        self.dropout = tf.keras.layers.Dropout(0.1)
+        self.fc2 = tf.keras.layers.Dense(vocab_size, kernel_regularizer='l2')
 
         self.attention = BahdanauAttention(self.rnn_units)
 
-    def call(self, x, features, hidden):
+    def call(self, x, features, hidden, training=False):
         # defining attention as a separate model
         context_vector, attention_weights = self.attention(features, hidden)
 
@@ -90,6 +91,9 @@ class RNN_Decoder(tf.keras.Model):
 
         # x shape == (batch_size, hidden_size)
         x = tf.reshape(x, (-1, x.shape[2]))
+
+        # Using drop out
+        x = self.dropout(x, training=training)
 
         # shape == (batch_size, vocab)
         x = self.fc2(x)
