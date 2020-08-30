@@ -1,6 +1,7 @@
 import numpy as np
-import tensorflow as tf
+# import tensorflow as tf
 import matplotlib.pyplot as plt
+import os
 
 # tf.keras.backend.set_floatx('float64')
 
@@ -57,12 +58,38 @@ import matplotlib.pyplot as plt
 #
 # print(res)
 
-a = [tf.ones((3, 4))]
+# a = [tf.ones((3, 4))]
+#
+# b = [tf.ones((5, 6))]
+#
+# c = a + b
+#
+# l2 = tf.reduce_sum([tf.nn.l2_loss(v) for v in c])
+#
+# print(l2.numpy())
 
-b = [tf.ones((5, 6))]
+# a = tf.convert_to_tensor([], dtype=tf.float32)
+#
+# b = tf.concat([a, tf.convert_to_tensor([2], dtype=tf.float32)], -1)
+#
+# print(b)
+#
+# print(b.numpy())
 
-c = a + b
+# npa = np.array([10.0])
+#
+# if os.path.exists('./test.npy'):
+#     npa = np.load('./test.npy')
+#
+# npa = np.append(npa, 1)
+#
+# print(npa)
+#
+# npa = np.save('./test.npy', npa)
 
-l2 = tf.reduce_sum([tf.nn.l2_loss(v) for v in c])
+a = np.arange(3)
 
-print(l2.numpy())
+a = np.r_[100, a]
+
+
+print(a)
