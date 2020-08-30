@@ -200,14 +200,15 @@ img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vec
 
 EPOCHS_TO_SAVE = 1
 BATCH_SIZE = 100
-BUFFER_SIZE = 1024
+BUFFER_SIZE = 2000
 embedding_dim = 128
-feature_dim = 100
+feature_dim = 64
 rnn_units = 512
 fc_units = 1024
 vocab_size = num_words + 1
 steps_per_epoch = len(img_name_train) // BATCH_SIZE
 steps_per_epoch_val = len(img_name_val) // BATCH_SIZE
+regularization_rate = 0.001
 
 # Shape of the vector extracted from InceptionV3 is (64, 2048)
 # These two variables represent that vector shape
@@ -294,7 +295,7 @@ def train_step(img_tensor, target):
         for i in range(1, target.shape[1]):
             # passing the features through the decoder
             # predictions shape = (batch_size, vocab_size)
-            predictions, hidden, _ = decoder(dec_input, features, hidden)
+            predictions, hidden, _ = decoder(dec_input, features, hidden, training=True)
 
             loss += loss_function(target[:, i], predictions)
 
@@ -304,6 +305,8 @@ def train_step(img_tensor, target):
     avg_loss = (loss / int(target.shape[1]))
 
     trainable_variables = encoder.trainable_variables + decoder.trainable_variables
+
+    loss += tf.nn.l2_loss([t for t in trainable_variables if 'bias' not in t.name]) * regularization_rate
 
     gradients = tape.gradient(loss, trainable_variables)
 

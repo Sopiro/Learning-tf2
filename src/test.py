@@ -1,5 +1,5 @@
 import numpy as np
-# import tensorflow as tf
+import tensorflow as tf
 import matplotlib.pyplot as plt
 
 # tf.keras.backend.set_floatx('float64')
@@ -51,8 +51,18 @@ import matplotlib.pyplot as plt
 #     print(p)
 #     print(tf.argmax([1., 2., 1., 2., 4., 5., 6., 36., 53., 643., 5., 3., 6., 567., 58., 56., 5., 64.]))
 
-list = ['a', 'b', 'c', 'd']
+# list = ['a', 'b', 'c', 'd']
+#
+# res = ' '.join(list)
+#
+# print(res)
 
-res = ' '.join(list)
+a = [tf.Variable(1.0, name='test.bias'), tf.Variable(2.0), tf.Variable(3.0, name='test.bias')]
 
-print(res)
+b = [tf.Variable(4.0), tf.Variable(5.0), tf.Variable(6.0, name='test.bias')]
+
+c = a + b
+d = tf.nn.l2_loss([v for v in c if 'bias' not in v.name])
+
+print(d)
+
