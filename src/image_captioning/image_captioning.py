@@ -1,9 +1,5 @@
 import tensorflow as tf
 
-# You'll generate plots of attention in order to see which parts of an image
-# our model focuses on during captioning
-
-# Scikit-learn includes many helpful utilities
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 
@@ -34,26 +30,43 @@ if not os.path.exists(os.path.abspath('.') + annotation_folder):
                                              cache_subdir=os.path.abspath('..'),
                                              origin='http://images.cocodataset.org/annotations/annotations_trainval2014.zip',
                                              extract=True)
-    annotation_file = os.path.dirname(annotation_zip) + '/annotations/captions_train2014.json'
+    annotation_train = os.path.dirname(annotation_zip) + '/annotations/captions_train2014.json'
+    annotation_val = os.path.dirname(annotation_zip) + '/annotations/captions_val2014.json'
     os.remove(annotation_zip)
 else:
-    annotation_file = os.path.abspath('.') + '/annotations/captions_train2014.json'
+    annotation_train = os.path.abspath('.') + '/annotations/captions_train2014.json'
+    annotation_val = os.path.abspath('.') + '/annotations/captions_val2014.json'
 
 # Download image files
-image_folder = './train2014/'
-if not os.path.exists(os.path.abspath('.') + image_folder):
+image_folder_train = './train2014/'
+if not os.path.exists(os.path.abspath('.') + image_folder_train):
     image_zip = tf.keras.utils.get_file('train2014.zip',
                                         cache_subdir=os.path.abspath('..'),
                                         origin='http://images.cocodataset.org/zips/train2014.zip',
                                         extract=True)
-    PATH = os.path.dirname(image_zip) + image_folder
+    PATH_TRAIN = os.path.dirname(image_zip) + image_folder_train
     os.remove(image_zip)
 else:
-    PATH = os.path.abspath('.') + image_folder
+    PATH_TRAIN = os.path.abspath('.') + image_folder_train
+
+# Download image files
+image_folder_val = './val2014/'
+if not os.path.exists(os.path.abspath('.') + image_folder_val):
+    image_zip = tf.keras.utils.get_file('val2014.zip',
+                                        cache_subdir=os.path.abspath('..'),
+                                        origin='http://images.cocodataset.org/zips/val2014.zip',
+                                        extract=True)
+    PATH_VAL = os.path.dirname(image_zip) + image_folder_val
+    os.remove(image_zip)
+else:
+    PATH_VAL = os.path.abspath('.') + image_folder_val
 
 # Read the json file
-with open(annotation_file, 'r') as f:
-    annotations = json.load(f)
+with open(annotation_train, 'r') as f:
+    annotations_train = json.load(f)
+
+with open(annotation_val, 'r') as f:
+    annotations_val = json.load(f)
 
 # Store captions and image names in vectors
 all_captions = []
@@ -61,7 +74,7 @@ all_img_name_vector = []
 
 dup = [False] * 600000
 
-for annot in annotations['annotations']:  # ex : {'image_id': 318556, 'id': 48, 'caption': 'A very clean and well decorated empty bathroom'}
+for annot in annotations_train['annotations']:  # ex : {'image_id': 318556, 'id': 48, 'caption': 'A very clean and well decorated empty bathroom'}
     caption = '<start> ' + annot['caption'] + ' <end>'
     image_id = annot['image_id']
 
@@ -69,12 +82,25 @@ for annot in annotations['annotations']:  # ex : {'image_id': 318556, 'id': 48, 
         continue
     dup[image_id] = True
 
-    full_coco_image_path = PATH + 'COCO_train2014_' + '%012d.jpg' % (image_id)
+    full_coco_image_path = PATH_TRAIN + 'COCO_train2014_' + '%012d.jpg' % image_id
 
     all_img_name_vector.append(full_coco_image_path)
     all_captions.append(caption)
 
-# print(len(all_captions), len(all_img_name_vector))  # 414113 414113
+for annot in annotations_val['annotations']:
+    caption = '<start> ' + annot['caption'] + ' <end>'
+    image_id = annot['image_id']
+
+    if dup[image_id]:
+        continue
+    dup[image_id] = True
+
+    full_coco_image_path = PATH_VAL + 'COCO_val2014_' + '%012d.jpg' % image_id
+
+    all_img_name_vector.append(full_coco_image_path)
+    all_captions.append(caption)
+
+# print(len(all_captions), len(all_img_name_vector))  # 123287
 
 # Shuffle captions and image_names together
 # Set a random state, which always guaranteed to have the same shuffle
@@ -115,13 +141,15 @@ image_dataset = image_dataset.map(load_image, num_parallel_calls=tf.data.experim
 
 
 # Disk-caching the features extracted from InceptionV3
-# for img, path in tqdm(image_dataset):
+# You just have got to do this once
+# for img, path in tqdm.tqdm(image_dataset):
 #     batch_features = image_features_extract_model(img)
 #     batch_features = tf.reshape(batch_features, (batch_features.shape[0], -1, batch_features.shape[3]))
 #
 #     for bf, p in zip(batch_features, path):
 #         path_of_feature = p.numpy().decode("utf-8")
 #         np.save(path_of_feature, bf.numpy())
+# assert False
 
 # Find the maximum length of any caption in our dataset
 def calc_max_length(tensor):
@@ -174,7 +202,7 @@ EPOCHS_TO_SAVE = 1
 BATCH_SIZE = 100
 BUFFER_SIZE = 1024
 embedding_dim = 128
-feature_dim = 64
+feature_dim = 100
 rnn_units = 512
 fc_units = 1024
 vocab_size = num_words + 1
@@ -232,7 +260,7 @@ def loss_function(real, pred):
 
 
 # Checkpoints
-checkpoint_path = "./checkpoints/train7"
+checkpoint_path = "./checkpoints/train8"
 ckpt = tf.train.Checkpoint(encoder=encoder,
                            decoder=decoder,
                            optimizer=optimizer)
@@ -318,7 +346,7 @@ def calc_validation_loss(img_tensor, target):
 
 
 loss_plot = []
-EPOCHS = 0
+EPOCHS = 3
 REPORT_PER_BATCH = 100
 print('Start Epoch = ', start_epoch)
 print('Start training for {} epochs'.format(EPOCHS))
