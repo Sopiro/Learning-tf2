@@ -302,11 +302,12 @@ def train_step(img_tensor, target):
             # using teacher forcing
             dec_input = tf.expand_dims(target[:, i], 1)
 
+        # l2 regularization on weights. Not applied on biases.
+
+        trainable_variables = encoder.trainable_variables + decoder.trainable_variables
+        loss += tf.reduce_sum([tf.nn.l2_loss(t) for t in trainable_variables if 'bias' not in t.name]) * regularization_rate
+
     avg_loss = (loss / int(target.shape[1]))
-
-    trainable_variables = encoder.trainable_variables + decoder.trainable_variables
-
-    loss += tf.nn.l2_loss([t for t in trainable_variables if 'bias' not in t.name]) * regularization_rate
 
     gradients = tape.gradient(loss, trainable_variables)
 
@@ -328,20 +329,19 @@ def calc_validation_loss(img_tensor, target):
     # (batch_size, '<start>'), shape = (batch_size, 1)
     dec_input = tf.expand_dims([tokenizer.word_index['<start>']] * target.shape[0], 1)
 
-    with tf.GradientTape() as tape:
-        # Encode InceptionV3 features into embedding vector
-        features = encoder(img_tensor)  # shape = (batch_size, 64, embedding_dim) = (240, 64, 256)
+    # Encode InceptionV3 features into embedding vector
+    features = encoder(img_tensor)  # shape = (batch_size, 64, embedding_dim) = (240, 64, 256)
 
-        # Start from index 1 to jump the start token
-        for i in range(1, target.shape[1]):
-            # passing the features through the decoder
-            # predictions shape = (batch_size, vocab_size)
-            predictions, hidden, _ = decoder(dec_input, features, hidden)
+    # Start from index 1 to jump the start token
+    for i in range(1, target.shape[1]):
+        # passing the features through the decoder
+        # predictions shape = (batch_size, vocab_size)
+        predictions, hidden, _ = decoder(dec_input, features, hidden)
 
-            loss += loss_function(target[:, i], predictions)
+        loss += loss_function(target[:, i], predictions)
 
-            # using teacher forcing
-            dec_input = tf.expand_dims(target[:, i], 1)
+        # using teacher forcing
+        dec_input = tf.expand_dims(target[:, i], 1)
 
     avg_loss = (loss / int(target.shape[1]))
 

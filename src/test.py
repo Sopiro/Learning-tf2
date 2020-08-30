@@ -57,12 +57,12 @@ import matplotlib.pyplot as plt
 #
 # print(res)
 
-a = [tf.Variable(1.0, name='test.bias'), tf.Variable(2.0), tf.Variable(3.0, name='test.bias')]
+a = [tf.ones((3, 4))]
 
-b = [tf.Variable(4.0), tf.Variable(5.0), tf.Variable(6.0, name='test.bias')]
+b = [tf.ones((5, 6))]
 
 c = a + b
-d = tf.nn.l2_loss([v for v in c if 'bias' not in v.name])
 
-print(d)
+l2 = tf.reduce_sum([tf.nn.l2_loss(v) for v in c])
 
+print(l2.numpy())
