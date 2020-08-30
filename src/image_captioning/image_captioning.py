@@ -174,6 +174,7 @@ EPOCHS_TO_SAVE = 1
 BATCH_SIZE = 100
 BUFFER_SIZE = 1024
 embedding_dim = 128
+feature_dim = 64
 rnn_units = 512
 fc_units = 1024
 vocab_size = num_words + 1
@@ -211,7 +212,7 @@ dataset_val = dataset_val.map(lambda item1, item2:
 dataset_val = dataset_val.shuffle(BUFFER_SIZE, reshuffle_each_iteration=True).batch(BATCH_SIZE)
 dataset_val = dataset_val.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
-encoder = models.CNN_Encoder(embedding_dim)
+encoder = models.CNN_Encoder(feature_dim)
 decoder = models.RNN_Decoder(embedding_dim, rnn_units, fc_units, vocab_size)
 
 optimizer = tf.keras.optimizers.Adam()
@@ -231,7 +232,7 @@ def loss_function(real, pred):
 
 
 # Checkpoints
-checkpoint_path = "./checkpoints/train6"
+checkpoint_path = "./checkpoints/train7"
 ckpt = tf.train.Checkpoint(encoder=encoder,
                            decoder=decoder,
                            optimizer=optimizer)
@@ -317,7 +318,7 @@ def calc_validation_loss(img_tensor, target):
 
 
 loss_plot = []
-EPOCHS = 1
+EPOCHS = 0
 REPORT_PER_BATCH = 100
 print('Start Epoch = ', start_epoch)
 print('Start training for {} epochs'.format(EPOCHS))
@@ -328,12 +329,14 @@ for epoch in range(EPOCHS):
     start = time.time()
     total_loss = 0
 
+    current_epoch = start_epoch + epoch + 1
+
     for (batch, (img_tensor, target)) in enumerate(dataset):
         batch_loss = train_step(img_tensor, target)
         total_loss += batch_loss
 
         if batch % REPORT_PER_BATCH == 0:
-            print('Epoch {} Batch {}/{} Loss {:.4f}'.format(epoch + 1, batch, steps_per_epoch, batch_loss))
+            print('Epoch {} Batch {}/{} Loss {:.4f}'.format(current_epoch, batch, steps_per_epoch, batch_loss))
             loss_plot.append(batch_loss)
 
     total_loss_val = 0
@@ -343,8 +346,8 @@ for epoch in range(EPOCHS):
         batch_loss_val = calc_validation_loss(img_tensor_val, target_val)
         total_loss_val += batch_loss_val
 
-    print('Epoch {} Validation Loss {:.6f}'.format(start_epoch + epoch + 1, total_loss_val / steps_per_epoch_val))
-    print('Epoch {} Loss {:.6f}'.format(start_epoch + epoch + 1, total_loss / steps_per_epoch))
+    print('Epoch {} Validation Loss {:.6f}'.format(current_epoch, total_loss_val / steps_per_epoch_val))
+    print('Epoch {} Loss {:.6f}'.format(current_epoch, total_loss / steps_per_epoch))
     print('Time taken for 1 epoch {} sec\n'.format(time.time() - start))
 
     if (epoch + 1) % EPOCHS_TO_SAVE == 0:
