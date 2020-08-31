@@ -87,9 +87,25 @@ import os
 #
 # npa = np.save('./test.npy', npa)
 
-a = np.arange(3)
+# a = np.arange(3)
+#
+# a = np.r_[100, a]
+#
+# print(a)
 
-a = np.r_[100, a]
+# a = [tf.ones((100, 1, 300))]
+# b = [tf.ones((100, 1, 30))]
+#
+# c = a + b
+#
+# print(tf.reduce_sum([tf.size(t) for t in c]).numpy())
 
 
-print(a)
+a = [1, 2, 3]
+
+b = ['a', 'b', 'c']
+
+c = zip(a, b)
+
+for i in c:
+    print(type(i))

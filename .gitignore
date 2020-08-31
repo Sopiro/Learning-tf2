@@ -9,4 +9,5 @@ ckpt_test
 src/image_captioning/annotations
 src/image_captioning/train2014
 src/image_captioning/val2014
+src/image_captioning/checkpoints
 src/test.py

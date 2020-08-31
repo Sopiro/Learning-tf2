@@ -108,7 +108,7 @@ train_captions, img_name_vector = shuffle(all_captions, all_img_name_vector, ran
 
 
 # Select the first N captions from the shuffled set
-# num_examples = 400000
+# num_examples = 1024
 # train_captions = train_captions[:num_examples]
 # img_name_vector = img_name_vector[:num_examples]
 
@@ -139,7 +139,6 @@ encode_train = sorted(set(img_name_vector))
 image_dataset = tf.data.Dataset.from_tensor_slices(encode_train)
 image_dataset = image_dataset.map(load_image, num_parallel_calls=tf.data.experimental.AUTOTUNE).batch(16)
 
-
 # Disk-caching the features extracted from InceptionV3
 # You just have got to do this once
 # for img, path in tqdm.tqdm(image_dataset):
@@ -150,10 +149,6 @@ image_dataset = image_dataset.map(load_image, num_parallel_calls=tf.data.experim
 #         path_of_feature = p.numpy().decode("utf-8")
 #         np.save(path_of_feature, bf.numpy())
 # assert False
-
-# Find the maximum length of any caption in our dataset
-def calc_max_length(tensor):
-    return max(len(t) for t in tensor)
 
 
 # Choose the top 5000 words from the vocabulary
@@ -184,7 +179,7 @@ train_seqs = tokenizer.texts_to_sequences(train_captions)
 cap_vector = tf.keras.preprocessing.sequence.pad_sequences(train_seqs, padding='post')
 
 # Calculates the max_length, which is used to store the attention weights
-max_length = calc_max_length(train_seqs)  # 49
+max_length = max(len(t) for t in train_seqs)  # 49
 
 # Create training and validation sets using an 80-20 split
 img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vector,
@@ -198,9 +193,11 @@ img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vec
 # print(cap_train[:5])
 # assert False
 
+EPOCHS = 0
+REPORT_PER_BATCH = 100
 EPOCHS_TO_SAVE = 1
-BATCH_SIZE = 100
-BUFFER_SIZE = 2000
+BATCH_SIZE = 80
+BUFFER_SIZE = 10000
 embedding_dim = 128
 feature_dim = 64
 rnn_units = 512
@@ -303,7 +300,6 @@ def train_step(img_tensor, target):
             dec_input = tf.expand_dims(target[:, i], 1)
 
         # l2 regularization on weights. Not applied on biases.
-
         trainable_variables = encoder.trainable_variables + decoder.trainable_variables
         loss += tf.reduce_sum([tf.nn.l2_loss(t) for t in trainable_variables if 'bias' not in t.name]) * regularization_rate
 
@@ -348,13 +344,21 @@ def calc_validation_loss(img_tensor, target):
     return avg_loss
 
 
-loss_plot = []
-EPOCHS = 3
-REPORT_PER_BATCH = 100
 print('Start Epoch = ', start_epoch)
 print('Start training for {} epochs'.format(EPOCHS))
 print('Batch Size = ', BATCH_SIZE)
 print('Steps per epoch = ', steps_per_epoch)
+
+loss_train_plot = []
+loss_val_plot = []
+loss_train_file = checkpoint_path + '/loss_train.npy'
+loss_val_file = checkpoint_path + '/loss_val.npy'
+
+if os.path.exists(loss_train_file):
+    loss_train_plot = np.load(loss_train_file)
+
+if os.path.exists(loss_val_file):
+    loss_val_plot = np.load(loss_val_file)
 
 for epoch in range(EPOCHS):
     start = time.time()
@@ -368,7 +372,7 @@ for epoch in range(EPOCHS):
 
         if batch % REPORT_PER_BATCH == 0:
             print('Epoch {} Batch {}/{} Loss {:.4f}'.format(current_epoch, batch, steps_per_epoch, batch_loss))
-            loss_plot.append(batch_loss)
+            loss_train_plot = np.append(loss_train_plot, batch_loss)
 
     total_loss_val = 0
 
@@ -377,15 +381,27 @@ for epoch in range(EPOCHS):
         batch_loss_val = calc_validation_loss(img_tensor_val, target_val)
         total_loss_val += batch_loss_val
 
-    print('Epoch {} Validation Loss {:.6f}'.format(current_epoch, total_loss_val / steps_per_epoch_val))
     print('Epoch {} Loss {:.6f}'.format(current_epoch, total_loss / steps_per_epoch))
+    loss_train_plot = np.append(loss_train_plot, total_loss / steps_per_epoch)
+    print('Epoch {} Validation Loss {:.6f}'.format(current_epoch, total_loss_val / steps_per_epoch_val))
+    loss_val_plot = np.append(loss_val_plot, total_loss_val / steps_per_epoch_val)
+
     print('Time taken for 1 epoch {} sec\n'.format(time.time() - start))
 
     if (epoch + 1) % EPOCHS_TO_SAVE == 0:
         ckpt_manager.save()
 
-plt.plot(loss_plot)
-plt.xlabel('Epochs')
+val_gap = 2 + steps_per_epoch // REPORT_PER_BATCH
+
+np.save(loss_train_file, loss_train_plot)
+np.save(loss_val_file, loss_val_plot)
+
+loss_val_plot = np.r_[loss_val_plot[0], loss_val_plot]
+
+plt.plot(loss_train_plot, 'b', label='train loss')
+plt.plot(np.arange(len(loss_val_plot)) * val_gap, loss_val_plot, 'r--', label='val loss')
+plt.legend()
+plt.xlabel('Timestep')
 plt.ylabel('Loss')
 plt.title('Loss Plot')
 plt.show()
@@ -440,7 +456,7 @@ def plot_attention(image, result, attention_plot):
 
 
 # captions on the validation set
-for it in range(10):
+for it in range(0):
     rid = np.random.randint(0, len(img_name_val))
     image = img_name_val[rid]
     real_caption = ' '.join([tokenizer.index_word[i] for i in cap_val[rid] if i not in [0]])
@@ -457,7 +473,7 @@ image_url = 'https://tensorflow.org/images/surf.jpg'
 # image_url = 'https://post-phinf.pstatic.net/MjAxOTAyMTVfMjc2/MDAxNTUwMjA4NzE2MTIy.-Cae85qV570pF0FsWyoF2P4oEdooap7xS5vyfr3cGXUg.UaJFjECmhav26t5L985R9eg_cVS8zEDmyj_ihBrPR3wg.JPEG/3.jpg?type=w1200'
 # image_url = 'https://raw.githubusercontent.com/yashk2810/Image-Captioning/master/images/frisbee.png'
 image_extension = image_url[-4:]
-image_path = tf.keras.utils.get_file('image' + image_extension, origin=image_url)
+image_path = tf.keras.utils.get_file('coffee' + image_extension, origin=image_url)
 
 result, attention_plot = evaluate(image_path)
 print('Prediction Caption:', ' '.join(result))
