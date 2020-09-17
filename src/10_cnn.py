@@ -31,6 +31,8 @@ model.compile(optimizer=tf.keras.optimizers.Adam(), loss='sparse_categorical_cro
 
 model.summary()
 
+assert False
+
 history = model.fit(train_X, train_Y, batch_size=1000, epochs=25, validation_split=0.25)
 
 plt.figure(figsize=(12, 4))

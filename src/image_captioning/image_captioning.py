@@ -193,7 +193,7 @@ img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vec
 # print(cap_train[:5])
 # assert False
 
-EPOCHS = 0
+EPOCHS = 5
 REPORT_PER_BATCH = 100
 EPOCHS_TO_SAVE = 1
 BATCH_SIZE = 80
@@ -213,7 +213,7 @@ features_shape = 2048
 attention_features_shape = 64
 
 
-# Load the numpy files
+# Load the numpy files`
 def map_func(img_name, cap):
     img_tensor = np.load(img_name.decode('utf-8') + '.npy')
     return img_tensor, cap
@@ -456,7 +456,7 @@ def plot_attention(image, result, attention_plot):
 
 
 # captions on the validation set
-for it in range(0):
+for it in range(3):
     rid = np.random.randint(0, len(img_name_val))
     image = img_name_val[rid]
     real_caption = ' '.join([tokenizer.index_word[i] for i in cap_val[rid] if i not in [0]])

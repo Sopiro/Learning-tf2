@@ -1,5 +1,5 @@
 import numpy as np
-# import tensorflow as tf
+import tensorflow as tf
 import matplotlib.pyplot as plt
 import os
 
@@ -100,12 +100,9 @@ import os
 #
 # print(tf.reduce_sum([tf.size(t) for t in c]).numpy())
 
+t = tf.constant([[[1, 11], [2, 22], [3, 33]], [[4, 44], [5, 55], [6, 66]]])
+paddings = tf.constant([[1, 1], [1, 1], [10, 10]])
+# 'constant_values' is 0.
+# rank of 't' is 2.
 
-a = [1, 2, 3]
-
-b = ['a', 'b', 'c']
-
-c = zip(a, b)
-
-for i in c:
-    print(type(i))
+print(tf.pad(t, paddings, "REFLECT"))
