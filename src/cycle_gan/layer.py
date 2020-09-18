@@ -11,7 +11,8 @@ class CNR2d(tf.keras.Model):
                                           kernel_size=kernel_size,
                                           strides=stride,
                                           padding=padding,
-                                          use_bias=bias, kernel_initializer='glorot_uniform')]
+                                          use_bias=bias,
+                                          kernel_initializer='glorot_uniform')]
 
         if norm is not None:
             if norm == 'bnorm':

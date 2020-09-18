@@ -100,9 +100,9 @@ import os
 #
 # print(tf.reduce_sum([tf.size(t) for t in c]).numpy())
 
-t = tf.constant([[[1, 11], [2, 22], [3, 33]], [[4, 44], [5, 55], [6, 66]]])
-paddings = tf.constant([[1, 1], [1, 1], [10, 10]])
+t = tf.zeros((1, 5, 5, 3))
+paddings = tf.constant([[0, 0], [1, 1], [1, 1], [0, 0]])
 # 'constant_values' is 0.
 # rank of 't' is 2.
 
-print(tf.pad(t, paddings, "REFLECT"))
+print(tf.pad(t, paddings, "CONSTANT", constant_values=7))

@@ -13,3 +13,4 @@ src/image_captioning/checkpoints
 src/image_captioning/custom
 src/test.py
 src/cycle_gan/dataset
+src/cycle_gan/checkpoints
