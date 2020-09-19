@@ -1,27 +1,27 @@
-import tensorflow as tf
+import os
+import time
 import matplotlib.pyplot as plt
 from model import *
 import pathlib
 import tensorflow_datasets as tfds
 from dataset_loader import *
-import os
-
-AUTOTUNE = tf.data.experimental.AUTOTUNE
+import tqdm
 
 BUFFER_SIZE = 1000
-BATCH_SIZE = 16
 IMG_WIDTH = 256
 IMG_HEIGHT = 256
 
-EPOCHS = 40
-LAMBDA = 10
-
 base = os.path.abspath('.')
 
-train_A = image_folder_to_dataset('dataset/trainA', batch_size=BATCH_SIZE, buffer_size=BUFFER_SIZE)
-train_B = image_folder_to_dataset('dataset/trainB', batch_size=BATCH_SIZE, buffer_size=BUFFER_SIZE)
-test_A = image_folder_to_dataset('dataset/testA', batch_size=BATCH_SIZE, buffer_size=BUFFER_SIZE)
-test_B = image_folder_to_dataset('dataset/testB', batch_size=BATCH_SIZE, buffer_size=BUFFER_SIZE)
+train_A = image_folder_to_dataset('dataset/trainA', buffer_size=BUFFER_SIZE)
+train_B = image_folder_to_dataset('dataset/trainB', buffer_size=BUFFER_SIZE)
+test_A = image_folder_to_dataset('dataset/testA', buffer_size=BUFFER_SIZE)
+test_B = image_folder_to_dataset('dataset/testB', buffer_size=BUFFER_SIZE)
+custom = image_folder_to_dataset('dataset/custom', buffer_size=100)
+
+print('Domain A images :', len(train_A))
+print('Domain B images :', len(train_B))
+
 
 # print(train_A.take(1))
 # plt.figure(figsize=(10, 10))
@@ -32,11 +32,6 @@ test_B = image_folder_to_dataset('dataset/testB', batch_size=BATCH_SIZE, buffer_
 #         plt.axis("off")
 #
 # plt.show()
-
-train_A = train_A.unbatch()
-train_B = train_B.unbatch()
-test_A = test_A.unbatch()
-test_B = test_B.unbatch()
 
 
 def random_crop(image):
@@ -76,13 +71,15 @@ def preprocess_image_test(image):
     return image
 
 
-train_A = train_A.map(preprocess_image_train, num_parallel_calls=AUTOTUNE).cache().shuffle(BUFFER_SIZE).batch(1)
-train_B = train_B.map(preprocess_image_train, num_parallel_calls=AUTOTUNE).cache().shuffle(BUFFER_SIZE).batch(1)
-test_A = test_A.map(preprocess_image_test, num_parallel_calls=AUTOTUNE).cache().shuffle(BUFFER_SIZE).batch(1)
-test_B = test_B.map(preprocess_image_test, num_parallel_calls=AUTOTUNE).cache().shuffle(BUFFER_SIZE).batch(1)
+train_A = train_A.map(preprocess_image_train, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
+train_B = train_B.map(preprocess_image_train, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
+test_A = test_A.map(preprocess_image_test, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
+test_B = test_B.map(preprocess_image_test, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
+custom = custom.map(preprocess_image_test, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
 
-sample_A = next(iter(train_A))
-sample_B = next(iter(train_B))
+sample_A = next(iter(train_A.batch(1)))
+sample_B = next(iter(train_B.batch(1)))
+sample_C = next(iter(custom.batch(1)))
 
 # plt.subplot(121)
 # plt.title('Horse')
@@ -94,33 +91,30 @@ sample_B = next(iter(train_B))
 #
 # plt.show()
 
-OUTPUT_CHANNELS = 3
-
-generator_a2b = Generator(OUTPUT_CHANNELS)
-generator_b2a = Generator(OUTPUT_CHANNELS)
-
+generator_a2b = Generator(out_channels=3)
+generator_b2a = Generator(out_channels=3)
 discriminator_a = Discriminator()
 discriminator_b = Discriminator()
 
-to_zebra = generator_a2b(sample_A)
-to_horse = generator_b2a(sample_B)
-plt.figure(figsize=(8, 8))
-contrast = 8
-
-imgs = [sample_A, to_zebra, sample_B, to_horse]
-title = ['A', 'To B', 'B', 'To A']
-
+# to_zebra = generator_a2b(sample_A)
+# to_horse = generator_b2a(sample_B)
+# plt.figure(figsize=(8, 8))
+# contrast = 8
+#
+# imgs = [sample_A, to_zebra, sample_B, to_horse]
+# title = ['A', 'To B', 'B', 'To A']
+#
 # for i in range(len(imgs)):
 #     plt.subplot(2, 2, i + 1)
 #     plt.title(title[i])
 #     if i % 2 == 0:
 #         plt.imshow(imgs[i][0] * 0.5 + 0.5)
 #     else:
-#         plt.imshow(imgs[i][0] * 0.5 * contrast + 0.5)
+#         plt.imshow(imgs[i][0] * 0.5 * 8 + 0.5)
 # plt.show()
 #
 # plt.figure(figsize=(8, 8))
-
+#
 # plt.subplot(121)
 # plt.title('Is a real A?')
 # plt.imshow(discriminator_a(sample_A)[0, ..., -1], cmap='RdBu_r')
@@ -139,7 +133,6 @@ def discriminator_loss(real, generated):
     real_loss = loss_obj(tf.ones_like(real), real)
     generated_loss = loss_obj(tf.zeros_like(generated), generated)
     total_disc_loss = real_loss + generated_loss
-
     return total_disc_loss * 0.5
 
 
@@ -147,15 +140,13 @@ def generator_loss(generated):
     return loss_obj(tf.ones_like(generated), generated)
 
 
-def cycle_loss(real, cycled):
+def cycle_consistency_loss(real, cycled):
     loss = tf.reduce_mean(tf.abs(real - cycled))
-
     return loss
 
 
 def identity_loss(real, same):
     loss = tf.reduce_mean(tf.abs(real - same))
-
     return loss
 
 
@@ -178,7 +169,118 @@ ckpt = tf.train.Checkpoint(generator_a2b=generator_a2b,
 
 ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=10)
 
-# if a checkpoint exists, restore the latest checkpoint.
+
+def generate_images(model, test_input):
+    prediction = model(test_input)
+
+    plt.figure(figsize=(12, 12))
+
+    display_list = [test_input[0], prediction[0]]
+    title = ['Input Image', 'Predicted Image']
+
+    for i in range(2):
+        plt.subplot(1, 2, i + 1)
+        plt.title(title[i])
+        # getting the pixel values between [0, 1] to plot it.
+        plt.imshow(display_list[i] * 0.5 + 0.5)
+        plt.axis('off')
+    plt.show()
+
+
+BATCH_SIZE = 4
+EPOCHS = 5
+LAMBDA = 10
+EPOCHS_TO_SAVE = 1
+REPORT_PER_BATCH = 10
+STEPS_PER_EPOCH = min(len(train_A), len(train_B)) // BATCH_SIZE
+
+start_epoch = 0
 if ckpt_manager.latest_checkpoint:
+    start_epoch = int(ckpt_manager.latest_checkpoint.split('-')[-1]) * EPOCHS_TO_SAVE
     ckpt.restore(ckpt_manager.latest_checkpoint)
-    print('Latest checkpoint restored!!')
+    print('Latest checkpoint Epoch {} restored'.format(start_epoch))
+
+train_A = train_A.batch(BATCH_SIZE)
+train_B = train_B.batch(BATCH_SIZE)
+test_A = test_A.batch(BATCH_SIZE)
+test_B = test_B.batch(BATCH_SIZE)
+
+print('Start Epoch = ', start_epoch)
+print('Start training for {} epochs'.format(EPOCHS))
+print('Batch Size = ', BATCH_SIZE)
+print('Steps per epoch = ', STEPS_PER_EPOCH)
+
+generate_images(generator_b2a, sample_C)
+
+
+@tf.function
+def train_step(real_a, real_b):
+    with tf.GradientTape(persistent=True) as tape:
+        fake_b = generator_a2b(real_a, training=True)
+        cycled_a = generator_b2a(fake_b, training=True)
+
+        fake_a = generator_b2a(real_b, training=True)
+        cycled_b = generator_a2b(fake_a, training=True)
+
+        same_a = generator_b2a(real_a, training=True)
+        same_b = generator_a2b(real_b, training=True)
+
+        disc_real_a = discriminator_a(real_a, training=True)
+        disc_real_b = discriminator_b(real_b, training=True)
+
+        disc_fake_a = discriminator_a(fake_a, training=True)
+        disc_fake_b = discriminator_b(fake_b, training=True)
+
+        # calculate the loss
+        gen_a2b_loss = generator_loss(disc_fake_b)
+        gen_b2a_loss = generator_loss(disc_fake_a)
+
+        total_cycle_consistency_loss = cycle_consistency_loss(real_a, cycled_a) + cycle_consistency_loss(real_b, cycled_b)
+
+        # Total generator loss = adversarial loss + cycle loss
+        total_gen_a2b_loss = gen_a2b_loss + LAMBDA * total_cycle_consistency_loss + 0.5 * LAMBDA * identity_loss(real_b, same_b)
+        total_gen_b2a_loss = gen_b2a_loss + LAMBDA * total_cycle_consistency_loss + 0.5 * LAMBDA * identity_loss(real_a, same_a)
+
+        disc_a_loss = discriminator_loss(disc_real_a, disc_fake_a)
+        disc_b_loss = discriminator_loss(disc_real_b, disc_fake_b)
+
+    # Calculate the gradients for generator and discriminator
+    generator_g_gradients = tape.gradient(total_gen_a2b_loss, generator_a2b.trainable_variables)
+    generator_f_gradients = tape.gradient(total_gen_b2a_loss, generator_b2a.trainable_variables)
+
+    discriminator_a_gradients = tape.gradient(disc_a_loss, discriminator_a.trainable_variables)
+    discriminator_b_gradients = tape.gradient(disc_b_loss, discriminator_b.trainable_variables)
+
+    # Apply the gradients to the optimizer
+    generator_a2b_optimizer.apply_gradients(zip(generator_g_gradients, generator_a2b.trainable_variables))
+    generator_b2a_optimizer.apply_gradients(zip(generator_f_gradients, generator_b2a.trainable_variables))
+    discriminator_a_optimizer.apply_gradients(zip(discriminator_a_gradients, discriminator_a.trainable_variables))
+    discriminator_b_optimizer.apply_gradients(zip(discriminator_b_gradients, discriminator_b.trainable_variables))
+
+
+for epoch in range(EPOCHS):
+    start = time.time()
+
+    current_epoch = start_epoch + epoch + 1
+
+    # n = 0
+    for image_a, image_b in tqdm.tqdm(tf.data.Dataset.zip((train_A, train_B))):
+        train_step(image_a, image_b)
+        # if n % REPORT_PER_BATCH == 0:
+        #     print('Epoch {} Batch {}/{}'.format(current_epoch, n, STEPS_PER_EPOCH))
+        # n += 1
+
+    if (epoch + 1) % EPOCHS_TO_SAVE == 0:
+        ckpt_save_path = ckpt_manager.save()
+        print('Saving checkpoint for epoch {} at {}'.format(current_epoch, ckpt_save_path))
+
+    print('Time taken for epoch {} is {} sec\n'.format(current_epoch, time.time() - start))
+
+    # Using a consistent image (sample_A) so that the progress of the model is clearly visible.
+    # generate_images(generator_b2a, sample_C)
+
+# Run the trained model on the test dataset
+for inp in test_B.take(5):
+    generate_images(generator_b2a, inp)
+
+generate_images(generator_b2a, sample_C)

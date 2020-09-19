@@ -100,9 +100,15 @@ import os
 #
 # print(tf.reduce_sum([tf.size(t) for t in c]).numpy())
 
-t = tf.zeros((1, 5, 5, 3))
-paddings = tf.constant([[0, 0], [1, 1], [1, 1], [0, 0]])
-# 'constant_values' is 0.
-# rank of 't' is 2.
+# t = tf.zeros((1, 5, 5, 3))
+# paddings = tf.constant([[0, 0], [1, 1], [1, 1], [0, 0]])
+# # 'constant_values' is 0.
+# # rank of 't' is 2.
+#
+# print(tf.pad(t, paddings, "CONSTANT", constant_values=7))
 
-print(tf.pad(t, paddings, "CONSTANT", constant_values=7))
+
+a = tf.zeros((3, 5, 5, 3))
+b = tf.ones((3, 5, 5, 3))
+
+print(a - b)
