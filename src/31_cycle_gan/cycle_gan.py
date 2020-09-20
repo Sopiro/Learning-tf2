@@ -1,18 +1,32 @@
 import time
+import tensorflow
 import matplotlib.pyplot as plt
 from model import *
 from dataset_loader import *
 import tqdm
 
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        # Currently, memory growth needs to be the same across GPUs
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+    except RuntimeError as e:
+        # Memory growth must be set before GPUs have been initialized
+        print(e)
+
+REAL_LABEL = 0.95
 BUFFER_SIZE = 10000
 IMG_WIDTH = 256
 IMG_HEIGHT = 256
 
-version = 3
+version = 1
 
 if version == 1:
     dsdir = 'monet2photo'
-    checkpoint_path = "./checkpoints/train1"
+    checkpoint_path = "./checkpoints/monet"
     append_identity_loss = True
 elif version == 2:
     dsdir = 'vangogh2photo'
@@ -21,7 +35,11 @@ elif version == 2:
 elif version == 3:
     dsdir = 'face2ckpt'
     checkpoint_path = "./checkpoints/ckpt"
-    append_identity_loss = False
+    append_identity_loss = True
+elif version == 4:
+    dsdir = 'horse2zebra'
+    checkpoint_path = "./checkpoints/zebra"
+    append_identity_loss = True
 else:
     assert False
 
@@ -64,7 +82,7 @@ def normalize(image):
 
 def random_jitter(image):
     # resizing to 286 x 286 x 3
-    image = tf.image.resize(image, [286, 286], method=tf.image.ResizeMethod.LANCZOS3)
+    image = tf.image.resize(image, [286, 286], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
     # randomly cropping to 256 x 256 x 3
     image = random_crop(image)
@@ -82,7 +100,7 @@ def preprocess_image_train(image):
 
 
 def preprocess_image_test(image):
-    # image = resize(image)
+    image = resize(image)
     image = normalize(image)
     return image
 
@@ -91,11 +109,11 @@ train_A = train_A.map(preprocess_image_train, num_parallel_calls=tf.data.experim
 train_B = train_B.map(preprocess_image_train, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
 test_A = test_A.map(preprocess_image_test, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
 test_B = test_B.map(preprocess_image_test, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
-custom = custom.map(normalize, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
+custom = custom.map(preprocess_image_test, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
 
 sample_A = next(iter(train_A.batch(1)))
 sample_B = next(iter(train_B.batch(1)))
-sample_C = next(iter(custom.batch(1).shuffle(2)))
+sample_C = next(iter(custom.batch(1).shuffle(1, 5)))
 
 # plt.subplot(121)
 # plt.title('Horse')
@@ -145,15 +163,24 @@ discriminator_b = Discriminator()
 loss_obj = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
 
-def discriminator_loss(real, generated):
-    real_loss = loss_obj(tf.ones_like(real), real)
-    generated_loss = loss_obj(tf.zeros_like(generated), generated)
+def discriminator_loss(real, generated, use_lsgan=True):
+    if use_lsgan:
+        real_loss = tf.reduce_mean(tf.math.squared_difference(real, REAL_LABEL))
+        generated_loss = tf.reduce_mean(tf.math.square(generated))
+    else:
+        real_loss = loss_obj(tf.ones_like(real), real)
+        generated_loss = loss_obj(tf.zeros_like(generated), generated)
     total_disc_loss = real_loss + generated_loss
     return total_disc_loss * 0.5
 
 
-def generator_loss(generated):
-    return loss_obj(tf.ones_like(generated), generated)
+def generator_loss(generated, use_lsgan=True):
+    if use_lsgan:
+        loss = tf.reduce_mean(tf.math.squared_difference(generated, REAL_LABEL))
+    else:
+        loss = loss_obj(tf.ones_like(generated), generated)
+
+    return loss
 
 
 def cycle_consistency_loss(real, cycled):
@@ -201,7 +228,8 @@ def generate_images(model, test_input):
     plt.show()
 
 
-BATCH_SIZE = 4
+BATCH_SIZE = 1
+USE_LSGAN = True
 EPOCHS = 10
 LAMBDA = 10
 EPOCHS_TO_SAVE = 1
@@ -249,8 +277,8 @@ def train_step(real_a, real_b):
         disc_fake_b = discriminator_b(fake_b, training=True)
 
         # calculate the loss
-        gen_a2b_loss = generator_loss(disc_fake_b)
-        gen_b2a_loss = generator_loss(disc_fake_a)
+        gen_a2b_loss = generator_loss(disc_fake_b, use_lsgan=USE_LSGAN)
+        gen_b2a_loss = generator_loss(disc_fake_a, use_lsgan=USE_LSGAN)
 
         total_cycle_consistency_loss = cycle_consistency_loss(real_a, cycled_a) + cycle_consistency_loss(real_b, cycled_b)
 
@@ -262,8 +290,8 @@ def train_step(real_a, real_b):
             total_gen_a2b_loss += 0.5 * LAMBDA * identity_loss(real_b, same_b)
             total_gen_b2a_loss += 0.5 * LAMBDA * identity_loss(real_a, same_a)
 
-        disc_a_loss = discriminator_loss(disc_real_a, disc_fake_a)
-        disc_b_loss = discriminator_loss(disc_real_b, disc_fake_b)
+        disc_a_loss = discriminator_loss(disc_real_a, disc_fake_a, use_lsgan=USE_LSGAN)
+        disc_b_loss = discriminator_loss(disc_real_b, disc_fake_b, use_lsgan=USE_LSGAN)
 
     # Calculate the gradients for generator and discriminator
     generator_g_gradients = tape.gradient(total_gen_a2b_loss, generator_a2b.trainable_variables)
