@@ -3,7 +3,7 @@ import tensorflow_addons as tfa
 
 
 class CNR2d(tf.keras.Model):
-    def __init__(self, filters, kernel_size=3, stride=1, padding='same', norm='bnorm', relu=0.0, bias=True):
+    def __init__(self, filters, kernel_size=3, stride=1, padding='same', norm='bnorm', relu=0.0, bias=True, drop=0.0):
         super().__init__()
 
         layers = []
@@ -20,17 +20,22 @@ class CNR2d(tf.keras.Model):
             elif norm == 'inorm':
                 layers += [tfa.layers.InstanceNormalization()]
 
-        if relu is not None and relu >= 0.0:
-            layers += [tf.keras.layers.ReLU() if relu == 0 else tf.keras.layers.LeakyReLU(relu)]
+        if relu is not None and relu > 0.0:
+            layers += [tf.keras.layers.LeakyReLU(relu)]
+        else:
+            layers += [tf.keras.layers.ReLU()]
+
+        if drop is not None and drop > 0.0:
+            layers += [tf.keras.layers.Dropout(drop)]
 
         self.cnr2d = tf.keras.Sequential(layers)
 
-    def call(self, x):
-        return self.cnr2d(x)
+    def call(self, x, training=False):
+        return self.cnr2d(x, training=training)
 
 
 class DECNR2d(tf.keras.Model):
-    def __init__(self, filters, kernel_size=3, stride=1, padding='same', norm='bnorm', relu=0.0, bias=True):
+    def __init__(self, filters, kernel_size=3, stride=1, padding='same', norm='bnorm', relu=0.0, bias=False, drop=0.0):
         super().__init__()
 
         layers = []
@@ -39,7 +44,6 @@ class DECNR2d(tf.keras.Model):
                                                    kernel_size=kernel_size,
                                                    strides=stride,
                                                    use_bias=bias,
-                                                   output_padding=1,
                                                    kernel_initializer='glorot_uniform')]
         if norm is not None:
             if norm == 'bnorm':
@@ -47,25 +51,32 @@ class DECNR2d(tf.keras.Model):
             elif norm == 'inorm':
                 layers += [tfa.layers.InstanceNormalization()]
 
-        if relu is not None and relu >= 0.0:
-            layers += [tf.keras.layers.ReLU() if relu == 0 else tf.keras.layers.LeakyReLU(relu)]
+        if relu is not None and relu > 0.0:
+            layers += [tf.keras.layers.LeakyReLU(relu)]
+        else:
+            layers += [tf.keras.layers.ReLU()]
+
+        if drop is not None and drop > 0.0:
+            layers += [tf.keras.layers.Dropout(drop)]
 
         self.decnr2d = tf.keras.Sequential(layers)
 
-    def call(self, x):
-        return self.decnr2d(x)
+    def call(self, x, training=False):
+        return self.decnr2d(x, training=training)
 
 
 class ResBlock(tf.keras.Model):
-    def __init__(self, filters, kernel_size=3, stride=1, padding='same', norm='inorm', relu=0.0):
+    def __init__(self, filters, kernel_size=3, stride=1, padding='same', norm='inorm', relu=0.0, drop=0.0):
         super().__init__()
 
         layers = []
         layers += [CNR2d(filters, kernel_size=kernel_size, stride=stride, padding=padding, norm=norm, relu=relu)]
         layers += [CNR2d(filters, kernel_size=kernel_size, stride=stride, padding=padding, norm=norm, relu=None)]
 
+        if drop is not None and drop > 0.0:
+            layers += [tf.keras.layers.Dropout(drop)]
+
         self.resblk = tf.keras.Sequential(layers)
 
-    def call(self, x):
-        # return tf.concat(x, -1, self.resblk(x))
-        return x + self.resblk(x)
+    def call(self, x, training=False):
+        return x + self.resblk(x, training=training)

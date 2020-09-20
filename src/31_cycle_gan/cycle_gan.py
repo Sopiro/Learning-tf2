@@ -1,4 +1,3 @@
-import os
 import time
 import matplotlib.pyplot as plt
 from model import *
@@ -9,14 +8,20 @@ BUFFER_SIZE = 10000
 IMG_WIDTH = 256
 IMG_HEIGHT = 256
 
-version = 2
+version = 3
 
 if version == 1:
     dsdir = 'monet2photo'
     checkpoint_path = "./checkpoints/train1"
+    append_identity_loss = True
 elif version == 2:
     dsdir = 'vangogh2photo'
     checkpoint_path = "./checkpoints/gogh"
+    append_identity_loss = True
+elif version == 3:
+    dsdir = 'face2ckpt'
+    checkpoint_path = "./checkpoints/ckpt"
+    append_identity_loss = False
 else:
     assert False
 
@@ -40,10 +45,13 @@ print('Domain B images :', len(train_B))
 #
 # plt.show()
 
+def resize(image):
+    resized_image = tf.image.resize(image, size=(IMG_WIDTH, IMG_HEIGHT))
+    return resized_image
+
 
 def random_crop(image):
     cropped_image = tf.image.random_crop(image, size=[IMG_HEIGHT, IMG_WIDTH, 3])
-
     return cropped_image
 
 
@@ -56,7 +64,7 @@ def normalize(image):
 
 def random_jitter(image):
     # resizing to 286 x 286 x 3
-    image = tf.image.resize(image, [286, 286], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+    image = tf.image.resize(image, [286, 286], method=tf.image.ResizeMethod.LANCZOS3)
 
     # randomly cropping to 256 x 256 x 3
     image = random_crop(image)
@@ -74,6 +82,7 @@ def preprocess_image_train(image):
 
 
 def preprocess_image_test(image):
+    # image = resize(image)
     image = normalize(image)
     return image
 
@@ -82,7 +91,7 @@ train_A = train_A.map(preprocess_image_train, num_parallel_calls=tf.data.experim
 train_B = train_B.map(preprocess_image_train, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
 test_A = test_A.map(preprocess_image_test, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
 test_B = test_B.map(preprocess_image_test, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
-custom = custom.map(preprocess_image_test, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
+custom = custom.map(normalize, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
 
 sample_A = next(iter(train_A.batch(1)))
 sample_B = next(iter(train_B.batch(1)))
@@ -98,8 +107,8 @@ sample_C = next(iter(custom.batch(1).shuffle(2)))
 #
 # plt.show()
 
-generator_a2b = Generator(out_channels=3)
-generator_b2a = Generator(out_channels=3)
+generator_a2b = ResNetGenerator(out_channels=3)
+generator_b2a = ResNetGenerator(out_channels=3)
 discriminator_a = Discriminator()
 discriminator_b = Discriminator()
 
@@ -193,7 +202,7 @@ def generate_images(model, test_input):
 
 
 BATCH_SIZE = 4
-EPOCHS = 20
+EPOCHS = 10
 LAMBDA = 10
 EPOCHS_TO_SAVE = 1
 REPORT_PER_BATCH = 10
@@ -215,10 +224,11 @@ print('Start training for {} epochs'.format(EPOCHS))
 print('Batch Size = ', BATCH_SIZE)
 print('Steps per epoch = ', STEPS_PER_EPOCH)
 
-generate_images(generator_b2a, sample_C)
+generate_images(generator_a2b, sample_C)
 
 
 # assert False
+
 
 @tf.function
 def train_step(real_a, real_b):
@@ -245,8 +255,12 @@ def train_step(real_a, real_b):
         total_cycle_consistency_loss = cycle_consistency_loss(real_a, cycled_a) + cycle_consistency_loss(real_b, cycled_b)
 
         # Total generator loss = adversarial loss + cycle loss
-        total_gen_a2b_loss = gen_a2b_loss + LAMBDA * total_cycle_consistency_loss + 0.5 * LAMBDA * identity_loss(real_b, same_b)
-        total_gen_b2a_loss = gen_b2a_loss + LAMBDA * total_cycle_consistency_loss + 0.5 * LAMBDA * identity_loss(real_a, same_a)
+        total_gen_a2b_loss = gen_a2b_loss + LAMBDA * total_cycle_consistency_loss
+        total_gen_b2a_loss = gen_b2a_loss + LAMBDA * total_cycle_consistency_loss
+
+        if append_identity_loss:
+            total_gen_a2b_loss += 0.5 * LAMBDA * identity_loss(real_b, same_b)
+            total_gen_b2a_loss += 0.5 * LAMBDA * identity_loss(real_a, same_a)
 
         disc_a_loss = discriminator_loss(disc_real_a, disc_fake_a)
         disc_b_loss = discriminator_loss(disc_real_b, disc_fake_b)
@@ -288,7 +302,7 @@ for epoch in range(EPOCHS):
     # generate_images(generator_b2a, sample_C)
 
 # Run the trained model on the test dataset
-for inp in test_B.take(5):
-    generate_images(generator_b2a, inp)
+for inp in test_A.take(5):
+    generate_images(generator_a2b, inp)
 
-generate_images(generator_b2a, sample_C)
+generate_images(generator_a2b, sample_C)

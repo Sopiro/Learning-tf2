@@ -111,4 +111,9 @@ import os
 a = tf.zeros((3, 5, 5, 3))
 b = tf.ones((3, 5, 5, 3))
 
-print(a - b)
+print(a.shape)
+print(b.shape)
+
+c = tf.concat([a, b], 0)
+
+print(c.shape)
