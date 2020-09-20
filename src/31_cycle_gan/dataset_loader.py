@@ -1,6 +1,5 @@
 import pathlib
 import tensorflow as tf
-import matplotlib.pyplot as plt
 
 
 def load_image(image_path):

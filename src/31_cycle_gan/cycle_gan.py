@@ -2,8 +2,6 @@ import os
 import time
 import matplotlib.pyplot as plt
 from model import *
-import pathlib
-import tensorflow_datasets as tfds
 from dataset_loader import *
 import tqdm
 
@@ -13,10 +11,10 @@ IMG_HEIGHT = 256
 
 base = os.path.abspath('.')
 
-train_A = image_folder_to_dataset('dataset/trainA', buffer_size=BUFFER_SIZE)
-train_B = image_folder_to_dataset('dataset/trainB', buffer_size=BUFFER_SIZE)
-test_A = image_folder_to_dataset('dataset/testA', buffer_size=BUFFER_SIZE)
-test_B = image_folder_to_dataset('dataset/testB', buffer_size=BUFFER_SIZE)
+train_A = image_folder_to_dataset('dataset/monet2photo/trainA', buffer_size=BUFFER_SIZE)
+train_B = image_folder_to_dataset('dataset/monet2photo/trainB', buffer_size=BUFFER_SIZE)
+test_A = image_folder_to_dataset('dataset/monet2photo/testA', buffer_size=BUFFER_SIZE)
+test_B = image_folder_to_dataset('dataset/monet2photo/testB', buffer_size=BUFFER_SIZE)
 custom = image_folder_to_dataset('dataset/custom', buffer_size=100)
 
 print('Domain A images :', len(train_A))
@@ -212,6 +210,8 @@ print('Steps per epoch = ', STEPS_PER_EPOCH)
 
 generate_images(generator_b2a, sample_C)
 
+
+# assert False
 
 @tf.function
 def train_step(real_a, real_b):
