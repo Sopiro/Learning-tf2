@@ -5,16 +5,25 @@ from model import *
 from dataset_loader import *
 import tqdm
 
-BUFFER_SIZE = 1000
+BUFFER_SIZE = 10000
 IMG_WIDTH = 256
 IMG_HEIGHT = 256
 
-base = os.path.abspath('.')
+version = 2
 
-train_A = image_folder_to_dataset('dataset/monet2photo/trainA', buffer_size=BUFFER_SIZE)
-train_B = image_folder_to_dataset('dataset/monet2photo/trainB', buffer_size=BUFFER_SIZE)
-test_A = image_folder_to_dataset('dataset/monet2photo/testA', buffer_size=BUFFER_SIZE)
-test_B = image_folder_to_dataset('dataset/monet2photo/testB', buffer_size=BUFFER_SIZE)
+if version == 1:
+    dsdir = 'monet2photo'
+    checkpoint_path = "./checkpoints/train1"
+elif version == 2:
+    dsdir = 'vangogh2photo'
+    checkpoint_path = "./checkpoints/gogh"
+else:
+    assert False
+
+train_A = image_folder_to_dataset('dataset/{}/trainA'.format(dsdir), buffer_size=BUFFER_SIZE)
+train_B = image_folder_to_dataset('dataset/{}/trainB'.format(dsdir), buffer_size=BUFFER_SIZE)
+test_A = image_folder_to_dataset('dataset/{}/testA'.format(dsdir), buffer_size=BUFFER_SIZE)
+test_B = image_folder_to_dataset('dataset/{}/testB'.format(dsdir), buffer_size=BUFFER_SIZE)
 custom = image_folder_to_dataset('dataset/custom', buffer_size=100)
 
 print('Domain A images :', len(train_A))
@@ -77,7 +86,7 @@ custom = custom.map(preprocess_image_test, num_parallel_calls=tf.data.experiment
 
 sample_A = next(iter(train_A.batch(1)))
 sample_B = next(iter(train_B.batch(1)))
-sample_C = next(iter(custom.batch(1)))
+sample_C = next(iter(custom.batch(1).shuffle(2)))
 
 # plt.subplot(121)
 # plt.title('Horse')
@@ -154,8 +163,6 @@ generator_b2a_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
 discriminator_a_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
 discriminator_b_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
 
-checkpoint_path = "./checkpoints/train1"
-
 ckpt = tf.train.Checkpoint(generator_a2b=generator_a2b,
                            generator_b2a=generator_b2a,
                            discriminator_a=discriminator_a,
@@ -186,7 +193,7 @@ def generate_images(model, test_input):
 
 
 BATCH_SIZE = 4
-EPOCHS = 5
+EPOCHS = 20
 LAMBDA = 10
 EPOCHS_TO_SAVE = 1
 REPORT_PER_BATCH = 10
@@ -264,6 +271,7 @@ for epoch in range(EPOCHS):
     current_epoch = start_epoch + epoch + 1
 
     # n = 0
+    print('-------------------------------------------------------------')
     for image_a, image_b in tqdm.tqdm(tf.data.Dataset.zip((train_A, train_B))):
         train_step(image_a, image_b)
         # if n % REPORT_PER_BATCH == 0:
