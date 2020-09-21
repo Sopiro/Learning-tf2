@@ -17,7 +17,7 @@ class ResNetGenerator(tf.keras.Model):
 
         self.dec1 = DECNR2d(2 * nker, kernel_size=4, stride=2, norm=norm, relu=0.0)
         self.dec2 = DECNR2d(1 * nker, kernel_size=4, stride=2, norm=norm, relu=0.0)
-        self.dec3 = CNR2d(out_channels, kernel_size=7, stride=1, norm=None, relu=None)
+        self.dec3 = CNR2d(out_channels, kernel_size=7, stride=1, norm=None, relu=None, padding=3)
 
     def call(self, x, training=False):
         x = self.enc1(x, training=training)
@@ -27,6 +27,9 @@ class ResNetGenerator(tf.keras.Model):
         x = self.dec1(x, training=training)
         x = self.dec2(x, training=training)
         x = self.dec3(x, training=training)
+
+        print(x.shape)
+        assert False
 
         return tf.nn.tanh(x)  # -1 ~ 1
 
