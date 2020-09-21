@@ -1,5 +1,4 @@
 import time
-import tensorflow
 import matplotlib.pyplot as plt
 from model import *
 from dataset_loader import *
@@ -22,24 +21,23 @@ BUFFER_SIZE = 10000
 IMG_WIDTH = 256
 IMG_HEIGHT = 256
 
+append_identity_loss = True
+USE_LSGAN = True
+
 version = 1
 
 if version == 1:
     dsdir = 'monet2photo'
     checkpoint_path = "./checkpoints/monet"
-    append_identity_loss = True
 elif version == 2:
     dsdir = 'vangogh2photo'
     checkpoint_path = "./checkpoints/gogh"
-    append_identity_loss = True
 elif version == 3:
     dsdir = 'face2ckpt'
     checkpoint_path = "./checkpoints/ckpt"
-    append_identity_loss = True
 elif version == 4:
     dsdir = 'horse2zebra'
     checkpoint_path = "./checkpoints/zebra"
-    append_identity_loss = True
 else:
     assert False
 
@@ -100,7 +98,7 @@ def preprocess_image_train(image):
 
 
 def preprocess_image_test(image):
-    image = resize(image)
+    # image = resize(image)
     image = normalize(image)
     return image
 
@@ -125,8 +123,8 @@ sample_C = next(iter(custom.batch(1).shuffle(1, 5)))
 #
 # plt.show()
 
-generator_a2b = ResNetGenerator(out_channels=3)
-generator_b2a = ResNetGenerator(out_channels=3)
+generator_a2b = ResNetGenerator()
+generator_b2a = ResNetGenerator()
 discriminator_a = Discriminator()
 discriminator_b = Discriminator()
 
@@ -158,7 +156,6 @@ discriminator_b = Discriminator()
 # plt.imshow(discriminator_b(sample_B)[0, ..., -1], cmap='RdBu_r')
 #
 # plt.show()
-
 
 loss_obj = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
@@ -228,8 +225,7 @@ def generate_images(model, test_input):
     plt.show()
 
 
-BATCH_SIZE = 1
-USE_LSGAN = True
+BATCH_SIZE = 4
 EPOCHS = 10
 LAMBDA = 10
 EPOCHS_TO_SAVE = 1
