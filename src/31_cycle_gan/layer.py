@@ -3,17 +3,20 @@ import tensorflow_addons as tfa
 
 
 class CNR2d(tf.keras.Model):
-    def __init__(self, filters, kernel_size=3, stride=1, padding=1, norm='bnorm', relu=0.0, bias=True, drop=0.0):
+    def __init__(self, filters, kernel_size=3, stride=1, padding=None, norm='bnorm', relu=0.0, bias=True, drop=0.0, padding_type='same'):
         super().__init__()
 
         layers = []
-        layers += [ReflectionPadding(padding=padding)]
+        if padding is not None:
+            layers += [ReflectionPadding(padding=padding)]
+            padding_type = 'valid'
+
         layers += [tf.keras.layers.Conv2D(filters=filters,
                                           kernel_size=kernel_size,
                                           strides=stride,
-                                          padding='valid',
+                                          padding=padding_type,
                                           use_bias=bias,
-                                          kernel_initializer=tf.random_normal_initializer(1., 0.02))]
+                                          kernel_initializer=tf.keras.initializers.random_normal(0.0, 0.02))]
 
         if norm is not None:
             if norm == 'bnorm':
@@ -36,7 +39,7 @@ class CNR2d(tf.keras.Model):
 
 
 class DECNR2d(tf.keras.Model):
-    def __init__(self, filters, kernel_size=3, stride=1, norm='bnorm', relu=0.0, bias=False, drop=0.0):
+    def __init__(self, filters, kernel_size=3, stride=1, norm='bnorm', relu=0.0, bias=True, drop=0.0):
         super().__init__()
 
         layers = []
@@ -45,7 +48,7 @@ class DECNR2d(tf.keras.Model):
                                                    kernel_size=kernel_size,
                                                    strides=stride,
                                                    use_bias=bias,
-                                                   kernel_initializer=tf.random_normal_initializer(1., 0.02))]
+                                                   kernel_initializer=tf.keras.initializers.random_normal(0.0, 0.02))]
         if norm is not None:
             if norm == 'bnorm':
                 layers += [tf.keras.layers.BatchNormalization()]
@@ -86,7 +89,6 @@ class ResBlock(tf.keras.Model):
 class ReflectionPadding(tf.keras.Model):
     def __init__(self, padding):
         super(ReflectionPadding, self).__init__()
-
         self.padding = padding
 
     def call(self, x):

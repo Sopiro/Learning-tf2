@@ -3,12 +3,12 @@ from layer import *
 
 # ResNet Generator
 class ResNetGenerator(tf.keras.Model):
-    def __init__(self, out_channels, nker=64, norm='inorm'):
+    def __init__(self, out_channels=3, nker=64, norm='inorm'):
         super(ResNetGenerator, self).__init__()
 
-        self.enc1 = CNR2d(1 * nker, kernel_size=7, stride=1, padding=3, norm=norm, relu=0.0)
-        self.enc2 = CNR2d(2 * nker, kernel_size=4, stride=2, padding=1, norm=norm, relu=0.0)
-        self.enc3 = CNR2d(4 * nker, kernel_size=4, stride=2, padding=1, norm=norm, relu=0.0)
+        self.enc1 = CNR2d(1 * nker, kernel_size=7, stride=1, norm=norm, relu=0.0, padding=3)
+        self.enc2 = CNR2d(2 * nker, kernel_size=4, stride=2, norm=norm, relu=0.0)
+        self.enc3 = CNR2d(4 * nker, kernel_size=4, stride=2, norm=norm, relu=0.0)
 
         self.res = tf.keras.Sequential()
 
@@ -17,7 +17,7 @@ class ResNetGenerator(tf.keras.Model):
 
         self.dec1 = DECNR2d(2 * nker, kernel_size=4, stride=2, norm=norm, relu=0.0)
         self.dec2 = DECNR2d(1 * nker, kernel_size=4, stride=2, norm=norm, relu=0.0)
-        self.dec3 = CNR2d(out_channels, kernel_size=7, stride=1, padding=3, norm=None, relu=None)
+        self.dec3 = CNR2d(out_channels, kernel_size=7, stride=1, norm=None, relu=None)
 
     def call(self, x, training=False):
         x = self.enc1(x, training=training)
@@ -28,19 +28,19 @@ class ResNetGenerator(tf.keras.Model):
         x = self.dec2(x, training=training)
         x = self.dec3(x, training=training)
 
-        return tf.nn.tanh(x)
+        return tf.nn.tanh(x)  # -1 ~ 1
 
 
 # Patch GAN
 class Discriminator(tf.keras.Model):
-    def __init__(self, out_channels=1, nker=64, norm='inorm'):
+    def __init__(self, out_channels=1, nker=64, norm='bnorm'):
         super(Discriminator, self).__init__()
 
-        self.dsc1 = CNR2d(1 * nker, kernel_size=4, stride=2, padding=1, norm=None, relu=0.2, bias=False)
-        self.dsc2 = CNR2d(2 * nker, kernel_size=4, stride=2, padding=1, norm=norm, relu=0.2, bias=False)
-        self.dsc3 = CNR2d(4 * nker, kernel_size=4, stride=2, padding=1, norm=norm, relu=0.2, bias=False)
-        self.dsc4 = CNR2d(8 * nker, kernel_size=4, stride=2, padding=1, norm=norm, relu=0.2, bias=False)
-        self.dsc5 = CNR2d(out_channels, kernel_size=1, stride=1, padding=1, norm=None, relu=None, bias=False)
+        self.dsc1 = CNR2d(1 * nker, kernel_size=4, stride=2, norm=None, relu=0.2)
+        self.dsc2 = CNR2d(2 * nker, kernel_size=4, stride=2, norm=norm, relu=0.2)
+        self.dsc3 = CNR2d(4 * nker, kernel_size=4, stride=2, norm=norm, relu=0.2)
+        self.dsc4 = CNR2d(8 * nker, kernel_size=4, stride=1, norm=norm, relu=0.2, padding=1)
+        self.dsc5 = CNR2d(out_channels, kernel_size=4, stride=1, norm=None, relu=None, padding=1)
 
     def call(self, x, training=False):
         x = self.dsc1(x)
@@ -71,7 +71,7 @@ class UnetGenerator(tf.keras.Model):
         self.enc7 = CNR2d(8 * nker, kernel_size=4, stride=2, norm=norm, relu=0.2)
         self.enc8 = CNR2d(8 * nker, kernel_size=4, stride=2, norm=norm, relu=0.0)
 
-        self.dec8 = DECNR2d(8 * nker, kernel_size=4, stride=2, norm=norm, relu=0.0, drop=0.5, padding='same')
+        self.dec8 = DECNR2d(8 * nker, kernel_size=4, stride=2, norm=norm, relu=0.0, drop=0.5)
         self.dec7 = DECNR2d(8 * nker, kernel_size=4, stride=2, norm=norm, relu=0.0, drop=0.5)
         self.dec6 = DECNR2d(8 * nker, kernel_size=4, stride=2, norm=norm, relu=0.0, drop=0.5)
         self.dec5 = DECNR2d(8 * nker, kernel_size=4, stride=2, norm=norm, relu=0.0)

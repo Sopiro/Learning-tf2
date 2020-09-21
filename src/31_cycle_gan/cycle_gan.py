@@ -16,12 +16,12 @@ if gpus:
         # Memory growth must be set before GPUs have been initialized
         print(e)
 
-REAL_LABEL = 0.95
-BUFFER_SIZE = 10000
+REAL_LABEL = 1.0
+BUFFER_SIZE = 5000
 IMG_WIDTH = 256
 IMG_HEIGHT = 256
 
-append_identity_loss = True
+APPEND_IDENTITY_LOSS = True
 USE_LSGAN = True
 
 version = 1
@@ -128,34 +128,34 @@ generator_b2a = ResNetGenerator()
 discriminator_a = Discriminator()
 discriminator_b = Discriminator()
 
-# to_zebra = generator_a2b(sample_A)
-# to_horse = generator_b2a(sample_B)
-# plt.figure(figsize=(8, 8))
-# contrast = 8
-#
-# imgs = [sample_A, to_zebra, sample_B, to_horse]
-# title = ['A', 'To B', 'B', 'To A']
-#
-# for i in range(len(imgs)):
-#     plt.subplot(2, 2, i + 1)
-#     plt.title(title[i])
-#     if i % 2 == 0:
-#         plt.imshow(imgs[i][0] * 0.5 + 0.5)
-#     else:
-#         plt.imshow(imgs[i][0] * 0.5 * 8 + 0.5)
-# plt.show()
-#
-# plt.figure(figsize=(8, 8))
-#
-# plt.subplot(121)
-# plt.title('Is a real A?')
-# plt.imshow(discriminator_a(sample_A)[0, ..., -1], cmap='RdBu_r')
-#
-# plt.subplot(122)
-# plt.title('Is a real B?')
-# plt.imshow(discriminator_b(sample_B)[0, ..., -1], cmap='RdBu_r')
-#
-# plt.show()
+to_zebra = generator_a2b(sample_A)
+to_horse = generator_b2a(sample_B)
+plt.figure(figsize=(8, 8))
+contrast = 8
+
+imgs = [sample_A, to_zebra, sample_B, to_horse]
+title = ['A', 'To B', 'B', 'To A']
+
+for i in range(len(imgs)):
+    plt.subplot(2, 2, i + 1)
+    plt.title(title[i])
+    if i % 2 == 0:
+        plt.imshow(imgs[i][0] * 0.5 + 0.5)
+    else:
+        plt.imshow(imgs[i][0] * 0.5 * 8 + 0.5)
+plt.show()
+
+plt.figure(figsize=(8, 8))
+
+plt.subplot(121)
+plt.title('Is a real A?')
+plt.imshow(discriminator_a(sample_A)[0, ..., -1], cmap='RdBu_r')
+
+plt.subplot(122)
+plt.title('Is a real B?')
+plt.imshow(discriminator_b(sample_B)[0, ..., -1], cmap='RdBu_r')
+
+plt.show()
 
 loss_obj = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
@@ -211,6 +211,8 @@ ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=10)
 def generate_images(model, test_input):
     prediction = model(test_input)
 
+    # print(prediction.numpy())
+
     plt.figure(figsize=(12, 12))
 
     display_list = [test_input[0], prediction[0]]
@@ -225,8 +227,8 @@ def generate_images(model, test_input):
     plt.show()
 
 
-BATCH_SIZE = 4
-EPOCHS = 10
+BATCH_SIZE = 2
+EPOCHS = 7
 LAMBDA = 10
 EPOCHS_TO_SAVE = 1
 REPORT_PER_BATCH = 10
@@ -248,7 +250,11 @@ print('Start training for {} epochs'.format(EPOCHS))
 print('Batch Size = ', BATCH_SIZE)
 print('Steps per epoch = ', STEPS_PER_EPOCH)
 
-generate_images(generator_a2b, sample_C)
+# Run the trained model on the test dataset
+for inp in test_B.take(5):
+    generate_images(generator_b2a, inp)
+
+generate_images(generator_b2a, sample_C)
 
 
 # assert False
@@ -276,13 +282,13 @@ def train_step(real_a, real_b):
         gen_a2b_loss = generator_loss(disc_fake_b, use_lsgan=USE_LSGAN)
         gen_b2a_loss = generator_loss(disc_fake_a, use_lsgan=USE_LSGAN)
 
-        total_cycle_consistency_loss = cycle_consistency_loss(real_a, cycled_a) + cycle_consistency_loss(real_b, cycled_b)
+        total_cycle_consistency_loss = (cycle_consistency_loss(real_a, cycled_a) + cycle_consistency_loss(real_b, cycled_b)) * LAMBDA
 
         # Total generator loss = adversarial loss + cycle loss
-        total_gen_a2b_loss = gen_a2b_loss + LAMBDA * total_cycle_consistency_loss
-        total_gen_b2a_loss = gen_b2a_loss + LAMBDA * total_cycle_consistency_loss
+        total_gen_a2b_loss = gen_a2b_loss + total_cycle_consistency_loss
+        total_gen_b2a_loss = gen_b2a_loss + total_cycle_consistency_loss
 
-        if append_identity_loss:
+        if APPEND_IDENTITY_LOSS:
             total_gen_a2b_loss += 0.5 * LAMBDA * identity_loss(real_b, same_b)
             total_gen_b2a_loss += 0.5 * LAMBDA * identity_loss(real_a, same_a)
 
@@ -290,15 +296,15 @@ def train_step(real_a, real_b):
         disc_b_loss = discriminator_loss(disc_real_b, disc_fake_b, use_lsgan=USE_LSGAN)
 
     # Calculate the gradients for generator and discriminator
-    generator_g_gradients = tape.gradient(total_gen_a2b_loss, generator_a2b.trainable_variables)
-    generator_f_gradients = tape.gradient(total_gen_b2a_loss, generator_b2a.trainable_variables)
+    generator_a2b_gradients = tape.gradient(total_gen_a2b_loss, generator_a2b.trainable_variables)
+    generator_b2a_gradients = tape.gradient(total_gen_b2a_loss, generator_b2a.trainable_variables)
 
     discriminator_a_gradients = tape.gradient(disc_a_loss, discriminator_a.trainable_variables)
     discriminator_b_gradients = tape.gradient(disc_b_loss, discriminator_b.trainable_variables)
 
     # Apply the gradients to the optimizer
-    generator_a2b_optimizer.apply_gradients(zip(generator_g_gradients, generator_a2b.trainable_variables))
-    generator_b2a_optimizer.apply_gradients(zip(generator_f_gradients, generator_b2a.trainable_variables))
+    generator_a2b_optimizer.apply_gradients(zip(generator_a2b_gradients, generator_a2b.trainable_variables))
+    generator_b2a_optimizer.apply_gradients(zip(generator_b2a_gradients, generator_b2a.trainable_variables))
     discriminator_a_optimizer.apply_gradients(zip(discriminator_a_gradients, discriminator_a.trainable_variables))
     discriminator_b_optimizer.apply_gradients(zip(discriminator_b_gradients, discriminator_b.trainable_variables))
 
@@ -326,7 +332,7 @@ for epoch in range(EPOCHS):
     # generate_images(generator_b2a, sample_C)
 
 # Run the trained model on the test dataset
-for inp in test_A.take(5):
-    generate_images(generator_a2b, inp)
+for inp in test_B.take(5):
+    generate_images(generator_b2a, inp)
 
-generate_images(generator_a2b, sample_C)
+generate_images(generator_b2a, sample_C)
