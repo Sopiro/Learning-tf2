@@ -211,8 +211,6 @@ ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=10)
 def generate_images(model, test_input):
     prediction = model(test_input)
 
-    # print(prediction.numpy())
-
     plt.figure(figsize=(12, 12))
 
     display_list = [test_input[0], prediction[0]]
@@ -228,7 +226,7 @@ def generate_images(model, test_input):
 
 
 BATCH_SIZE = 2
-EPOCHS = 5
+EPOCHS = 3
 LAMBDA = 10
 EPOCHS_TO_SAVE = 1
 REPORT_PER_BATCH = 10
@@ -251,13 +249,10 @@ print('Batch Size = ', BATCH_SIZE)
 print('Steps per epoch = ', STEPS_PER_EPOCH)
 
 # Run the trained model on the test dataset
-for inp in test_B.take(5):
-    generate_images(generator_b2a, inp)
+for inp in test_A.take(5):
+    generate_images(generator_a2b, inp)
 
 generate_images(generator_b2a, sample_C)
-
-
-# assert False
 
 
 @tf.function

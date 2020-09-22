@@ -28,9 +28,6 @@ class ResNetGenerator(tf.keras.Model):
         x = self.dec2(x, training=training)
         x = self.dec3(x, training=training)
 
-        print(x.shape)
-        assert False
-
         return tf.nn.tanh(x)  # -1 ~ 1
 
 
