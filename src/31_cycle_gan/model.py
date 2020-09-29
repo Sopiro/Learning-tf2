@@ -22,12 +22,13 @@ class ResNetGenerator(tf.keras.Model):
 
         self.dec1 = DECNR2d(2 * nker, kernel_size=3, stride=2, norm=norm, relu=0.0)
         self.dec2 = DECNR2d(1 * nker, kernel_size=3, stride=2, norm=norm, relu=0.0)
-        self.dec3 = CNR2d(out_channels, kernel_size=7, stride=1, norm=None, relu=None, padding=3)
+        self.dec3 = CNR2d(out_channels, kernel_size=7, stride=1, norm=None, relu=None, bias=False, padding=3)
 
     def call(self, x, training=False):
         x = self.enc1(x, training=training)
         x = self.enc2(x, training=training)
         x = self.enc3(x, training=training)
+
         x = self.res1(x, training=training)
         x = self.res2(x, training=training)
         x = self.res3(x, training=training)
@@ -37,6 +38,7 @@ class ResNetGenerator(tf.keras.Model):
         x = self.res7(x, training=training)
         x = self.res8(x, training=training)
         x = self.res9(x, training=training)
+
         x = self.dec1(x, training=training)
         x = self.dec2(x, training=training)
         x = self.dec3(x, training=training)
