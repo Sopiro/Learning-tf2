@@ -114,6 +114,6 @@ b = tf.ones((3, 5, 5, 3))
 print(a.shape)
 print(b.shape)
 
-c = tf.concat([a, b], 0)
+c = tf.concat([a, b], -1)
 
 print(c.shape)

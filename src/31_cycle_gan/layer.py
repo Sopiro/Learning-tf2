@@ -3,12 +3,16 @@ import tensorflow_addons as tfa
 
 
 class CNR2d(tf.keras.Model):
-    def __init__(self, filters, kernel_size=3, stride=1, padding=None, norm='bnorm', relu=0.0, bias=True, drop=0.0, padding_type='same'):
+    def __init__(self, filters, kernel_size, stride, padding=None, norm='inorm', relu=0.0, bias=True, drop=0.0, padding_type='same'):
         super().__init__()
 
         layers = []
         if padding is not None:
-            layers += [ReflectionPadding(padding=padding)]
+            if padding_type.lower() == 'zero':
+                layers += [Padding(padding=padding, padding_type='CONSTANT', constant=0)]
+            else:
+                layers += [Padding(padding=padding)]
+
             padding_type = 'valid'
 
         layers += [tf.keras.layers.Conv2D(filters=filters,
@@ -24,10 +28,11 @@ class CNR2d(tf.keras.Model):
             elif norm == 'inorm':
                 layers += [tfa.layers.InstanceNormalization()]
 
-        if relu is not None and relu > 0.0:
-            layers += [tf.keras.layers.LeakyReLU(relu)]
-        else:
-            layers += [tf.keras.layers.ReLU()]
+        if relu is not None:
+            if relu > 0.0:
+                layers += [tf.keras.layers.LeakyReLU(relu)]
+            else:
+                layers += [tf.keras.layers.ReLU()]
 
         if drop is not None and drop > 0.0:
             layers += [tf.keras.layers.Dropout(drop)]
@@ -39,26 +44,28 @@ class CNR2d(tf.keras.Model):
 
 
 class DECNR2d(tf.keras.Model):
-    def __init__(self, filters, kernel_size=3, stride=1, norm='bnorm', relu=0.0, bias=True, drop=0.0):
+    def __init__(self, filters, kernel_size, stride, norm='inorm', relu=0.0, bias=True, drop=0.0, padding_type='same'):
         super().__init__()
 
         layers = []
         layers += [tf.keras.layers.Conv2DTranspose(filters=filters,
-                                                   padding='same',
+                                                   padding=padding_type,
                                                    kernel_size=kernel_size,
                                                    strides=stride,
                                                    use_bias=bias,
                                                    kernel_initializer=tf.keras.initializers.random_normal(0.0, 0.02))]
+
         if norm is not None:
             if norm == 'bnorm':
                 layers += [tf.keras.layers.BatchNormalization()]
             elif norm == 'inorm':
                 layers += [tfa.layers.InstanceNormalization()]
 
-        if relu is not None and relu > 0.0:
-            layers += [tf.keras.layers.LeakyReLU(relu)]
-        else:
-            layers += [tf.keras.layers.ReLU()]
+        if relu is not None:
+            if relu > 0.0:
+                layers += [tf.keras.layers.LeakyReLU(relu)]
+            else:
+                layers += [tf.keras.layers.ReLU()]
 
         if drop is not None and drop > 0.0:
             layers += [tf.keras.layers.Dropout(drop)]
@@ -70,15 +77,16 @@ class DECNR2d(tf.keras.Model):
 
 
 class ResBlock(tf.keras.Model):
-    def __init__(self, filters, kernel_size=3, stride=1, padding=1, norm='inorm', relu=0.0, drop=0.0):
+    def __init__(self, filters, kernel_size, stride, padding, norm='inorm', relu=0.0, drop=0.0, bias=True):
         super().__init__()
 
         layers = []
-        layers += [CNR2d(filters, kernel_size=kernel_size, stride=stride, padding=padding, norm=norm, relu=relu)]
-        layers += [CNR2d(filters, kernel_size=kernel_size, stride=stride, padding=padding, norm=norm, relu=None)]
+        layers += [CNR2d(filters, kernel_size=kernel_size, stride=stride, padding=padding, norm=norm, relu=relu, bias=bias)]
 
         if drop is not None and drop > 0.0:
             layers += [tf.keras.layers.Dropout(drop)]
+
+        layers += [CNR2d(filters, kernel_size=kernel_size, stride=stride, padding=padding, norm=norm, relu=None, bias=bias)]
 
         self.resblk = tf.keras.Sequential(layers)
 
@@ -86,10 +94,12 @@ class ResBlock(tf.keras.Model):
         return x + self.resblk(x, training=training)
 
 
-class ReflectionPadding(tf.keras.Model):
-    def __init__(self, padding):
-        super(ReflectionPadding, self).__init__()
+class Padding(tf.keras.Model):
+    def __init__(self, padding, padding_type='REFLECT', constant=0):
+        super(Padding, self).__init__()
         self.padding = padding
+        self.padding_type = padding_type
+        self.constant = constant
 
     def call(self, x):
-        return tf.pad(x, [[0, 0], [self.padding, self.padding], [self.padding, self.padding], [0, 0]], 'REFLECT')
+        return tf.pad(x, [[0, 0], [self.padding, self.padding], [self.padding, self.padding], [0, 0]], mode=self.padding_type, constant_values=self.constant)

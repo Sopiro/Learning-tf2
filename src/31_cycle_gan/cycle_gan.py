@@ -103,11 +103,11 @@ def preprocess_image_test(image):
     return image
 
 
-train_A = train_A.map(preprocess_image_train, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
-train_B = train_B.map(preprocess_image_train, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
-test_A = test_A.map(preprocess_image_test, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
-test_B = test_B.map(preprocess_image_test, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
-custom = custom.map(preprocess_image_test, num_parallel_calls=tf.data.experimental.AUTOTUNE).shuffle(BUFFER_SIZE).cache()
+train_A = train_A.map(preprocess_image_train, num_parallel_calls=tf.data.experimental.AUTOTUNE).cache().shuffle(BUFFER_SIZE, reshuffle_each_iteration=True)
+train_B = train_B.map(preprocess_image_train, num_parallel_calls=tf.data.experimental.AUTOTUNE).cache().shuffle(BUFFER_SIZE, reshuffle_each_iteration=True)
+test_A = test_A.map(preprocess_image_test, num_parallel_calls=tf.data.experimental.AUTOTUNE).cache().shuffle(BUFFER_SIZE, reshuffle_each_iteration=True)
+test_B = test_B.map(preprocess_image_test, num_parallel_calls=tf.data.experimental.AUTOTUNE).cache().shuffle(BUFFER_SIZE, reshuffle_each_iteration=True)
+custom = custom.map(preprocess_image_test, num_parallel_calls=tf.data.experimental.AUTOTUNE).cache().shuffle(BUFFER_SIZE, reshuffle_each_iteration=True)
 
 sample_A = next(iter(train_A.batch(1)))
 sample_B = next(iter(train_B.batch(1)))
@@ -125,8 +125,8 @@ sample_C = next(iter(custom.batch(1).shuffle(1, 5)))
 
 generator_a2b = ResNetGenerator()
 generator_b2a = ResNetGenerator()
-discriminator_a = Discriminator()
-discriminator_b = Discriminator()
+discriminator_a = Discriminator(lsgan=USE_LSGAN)
+discriminator_b = Discriminator(lsgan=USE_LSGAN)
 
 to_zebra = generator_a2b(sample_A)
 to_horse = generator_b2a(sample_B)
@@ -157,36 +157,33 @@ plt.imshow(discriminator_b(sample_B)[0, ..., -1], cmap='RdBu_r')
 
 plt.show()
 
-loss_obj = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+if USE_LSGAN:
+    loss_obj = tf.keras.losses.MeanSquaredError()
+else:
+    loss_obj = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+
+mae = tf.keras.losses.MeanAbsoluteError()
 
 
-def discriminator_loss(real, generated, use_lsgan=True):
-    if use_lsgan:
-        real_loss = tf.reduce_mean(tf.math.squared_difference(real, REAL_LABEL))
-        generated_loss = tf.reduce_mean(tf.math.square(generated))
-    else:
-        real_loss = loss_obj(tf.ones_like(real), real)
-        generated_loss = loss_obj(tf.zeros_like(generated), generated)
+def discriminator_loss(real, generated):
+    real_loss = loss_obj(tf.ones_like(real), real)
+    generated_loss = loss_obj(tf.zeros_like(generated), generated)
     total_disc_loss = real_loss + generated_loss
     return total_disc_loss * 0.5
 
 
-def generator_loss(generated, use_lsgan=True):
-    if use_lsgan:
-        loss = tf.reduce_mean(tf.math.squared_difference(generated, REAL_LABEL))
-    else:
-        loss = loss_obj(tf.ones_like(generated), generated)
-
+def generator_loss(generated):
+    loss = loss_obj(tf.ones_like(generated), generated)
     return loss
 
 
 def cycle_consistency_loss(real, cycled):
-    loss = tf.reduce_mean(tf.abs(real - cycled))
+    loss = mae(real, cycled)
     return loss
 
 
 def identity_loss(real, same):
-    loss = tf.reduce_mean(tf.abs(real - same))
+    loss = mae(real, same)
     return loss
 
 
@@ -208,12 +205,16 @@ ckpt = tf.train.Checkpoint(generator_a2b=generator_a2b,
 ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=10)
 
 
-def generate_images(model, test_input):
+def generate_images(model, test_input, save=None):
     prediction = model(test_input)
+
+    if save is not None:
+        tf.keras.preprocessing.image.save_img(save, prediction[0])
+        return
 
     plt.figure(figsize=(12, 12))
 
-    display_list = [test_input[0], prediction[0]]
+    display_list = [test_input[0], tf.math.sinh(prediction[0])]
     title = ['Input Image', 'Predicted Image']
 
     for i in range(2):
@@ -225,9 +226,9 @@ def generate_images(model, test_input):
     plt.show()
 
 
-BATCH_SIZE = 2
-EPOCHS = 3
-LAMBDA = 10
+BATCH_SIZE = 1
+EPOCHS = 1
+LAMBDA = 10.0
 EPOCHS_TO_SAVE = 1
 REPORT_PER_BATCH = 10
 STEPS_PER_EPOCH = min(len(train_A), len(train_B)) // BATCH_SIZE
@@ -243,15 +244,19 @@ train_B = train_B.batch(BATCH_SIZE)
 test_A = test_A.batch(BATCH_SIZE)
 test_B = test_B.batch(BATCH_SIZE)
 
+zipped = tf.data.Dataset.zip((train_A, train_B))
+
 print('Start Epoch = ', start_epoch)
 print('Start training for {} epochs'.format(EPOCHS))
 print('Batch Size = ', BATCH_SIZE)
 print('Steps per epoch = ', STEPS_PER_EPOCH)
 
 # Run the trained model on the test dataset
-for inp in test_A.take(5):
-    generate_images(generator_a2b, inp)
+for inp in test_B.take(5):
+    generate_images(generator_b2a, inp)
 
+generate_images(generator_a2b, sample_A, checkpoint_path + 'a2b.jpg')
+generate_images(generator_b2a, sample_B, checkpoint_path + 'b2a.jpg')
 generate_images(generator_b2a, sample_C)
 
 
@@ -274,8 +279,8 @@ def train_step(real_a, real_b):
         disc_fake_b = discriminator_b(fake_b, training=True)
 
         # calculate the loss
-        gen_a2b_loss = generator_loss(disc_fake_b, use_lsgan=USE_LSGAN)
-        gen_b2a_loss = generator_loss(disc_fake_a, use_lsgan=USE_LSGAN)
+        gen_a2b_loss = generator_loss(disc_fake_b)
+        gen_b2a_loss = generator_loss(disc_fake_a)
 
         total_cycle_consistency_loss = (cycle_consistency_loss(real_a, cycled_a) + cycle_consistency_loss(real_b, cycled_b)) * LAMBDA
 
@@ -287,8 +292,8 @@ def train_step(real_a, real_b):
             total_gen_a2b_loss += 0.5 * LAMBDA * identity_loss(real_b, same_b)
             total_gen_b2a_loss += 0.5 * LAMBDA * identity_loss(real_a, same_a)
 
-        disc_a_loss = discriminator_loss(disc_real_a, disc_fake_a, use_lsgan=USE_LSGAN)
-        disc_b_loss = discriminator_loss(disc_real_b, disc_fake_b, use_lsgan=USE_LSGAN)
+        disc_a_loss = discriminator_loss(disc_real_a, disc_fake_a)
+        disc_b_loss = discriminator_loss(disc_real_b, disc_fake_b)
 
     # Calculate the gradients for generator and discriminator
     generator_a2b_gradients = tape.gradient(total_gen_a2b_loss, generator_a2b.trainable_variables)
@@ -311,7 +316,7 @@ for epoch in range(EPOCHS):
 
     # n = 0
     print('-------------------------------------------------------------')
-    for image_a, image_b in tqdm.tqdm(tf.data.Dataset.zip((train_A, train_B))):
+    for image_a, image_b in tqdm.tqdm(zipped):
         train_step(image_a, image_b)
         # if n % REPORT_PER_BATCH == 0:
         #     print('Epoch {} Batch {}/{}'.format(current_epoch, n, STEPS_PER_EPOCH))
@@ -324,10 +329,11 @@ for epoch in range(EPOCHS):
     print('Time taken for epoch {} is {} sec\n'.format(current_epoch, time.time() - start))
 
     # Using a consistent image (sample_A) so that the progress of the model is clearly visible.
-    # generate_images(generator_b2a, sample_C)
+    generate_images(generator_a2b, sample_A, checkpoint_path + str(current_epoch) + 'a2b.jpg')
+    generate_images(generator_b2a, sample_B, checkpoint_path + str(current_epoch) + 'b2a.jpg')
 
 # Run the trained model on the test dataset
-for inp in test_B.take(5):
-    generate_images(generator_b2a, inp)
+for inp in test_A.take(5):
+    generate_images(generator_a2b, inp)
 
-generate_images(generator_b2a, sample_C)
+generate_images(generator_a2b, sample_C)
