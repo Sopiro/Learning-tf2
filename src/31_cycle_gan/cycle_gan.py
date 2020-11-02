@@ -227,7 +227,7 @@ def generate_images(model, test_input, save=None):
 
 
 BATCH_SIZE = 1
-EPOCHS = 3
+EPOCHS = 5
 LAMBDA = 10.0
 EPOCHS_TO_SAVE = 1
 REPORT_PER_BATCH = 10

@@ -11,6 +11,7 @@ src/30_image_captioning/train2014
 src/30_image_captioning/val2014
 src/30_image_captioning/checkpoints
 src/30_image_captioning/custom
+src/30_image_captioning/flickr30k_images
 src/test.py
 src/31_cycle_gan/dataset
 src/31_cycle_gan/checkpoints

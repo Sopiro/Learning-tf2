@@ -1,7 +1,8 @@
 import numpy as np
-import tensorflow as tf
+# import tensorflow as tf
 import matplotlib.pyplot as plt
 import os
+import pandas as pd
 
 # tf.keras.backend.set_floatx('float64')
 
@@ -108,12 +109,22 @@ import os
 # print(tf.pad(t, paddings, "CONSTANT", constant_values=7))
 
 
-a = tf.zeros((3, 5, 5, 3))
-b = tf.ones((3, 5, 5, 3))
+# a = tf.zeros((3, 5, 5, 3))
+# b = tf.ones((3, 5, 5, 3))
+#
+# print(a.shape)
+# print(b.shape)
+#
+# c = tf.concat([a, b], -1)
+#
+# print(c.shape)
 
-print(a.shape)
-print(b.shape)
+folder = '30_image_captioning/flickr30k_images'
 
-c = tf.concat([a, b], -1)
+data = pd.read_csv(folder + '/results.csv', delimiter='|')
 
-print(c.shape)
+print(data.info())
+
+for a, b, c in data.values:
+    if type(c) != str:
+        print(a, b, c)

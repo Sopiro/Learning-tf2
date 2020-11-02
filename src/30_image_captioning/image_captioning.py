@@ -10,6 +10,8 @@ import models
 import time
 import matplotlib.pyplot as plt
 from PIL import Image
+import pandas as pd
+from tqdm import tqdm
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
@@ -44,10 +46,10 @@ if not os.path.exists(os.path.abspath('.') + image_folder_train):
                                         cache_subdir=os.path.abspath('..'),
                                         origin='http://images.cocodataset.org/zips/train2014.zip',
                                         extract=True)
-    PATH_TRAIN = os.path.dirname(image_zip) + image_folder_train
+    PATH_COCO_TRAIN = os.path.dirname(image_zip) + image_folder_train
     os.remove(image_zip)
 else:
-    PATH_TRAIN = os.path.abspath('.') + image_folder_train
+    PATH_COCO_TRAIN = os.path.abspath('.') + image_folder_train
 
 # Download image files
 image_folder_val = './val2014/'
@@ -56,10 +58,12 @@ if not os.path.exists(os.path.abspath('.') + image_folder_val):
                                         cache_subdir=os.path.abspath('..'),
                                         origin='http://images.cocodataset.org/zips/val2014.zip',
                                         extract=True)
-    PATH_VAL = os.path.dirname(image_zip) + image_folder_val
+    PATH_COCO_VAL = os.path.dirname(image_zip) + image_folder_val
     os.remove(image_zip)
 else:
-    PATH_VAL = os.path.abspath('.') + image_folder_val
+    PATH_COCO_VAL = os.path.abspath('.') + image_folder_val
+
+PATH_FLICKR = os.path.abspath('.') + '/flickr30k_images/flickr30k_images/'
 
 # Read the json file
 with open(annotation_train, 'r') as f:
@@ -74,33 +78,55 @@ all_img_name_vector = []
 
 dup = [False] * 600000
 
-for annot in annotations_train['annotations']:  # ex : {'image_id': 318556, 'id': 48, 'caption': 'A very clean and well decorated empty bathroom'}
-    caption = '<start> ' + annot['caption'] + ' <end>'
-    image_id = annot['image_id']
+# Append COCO train captions
+# for annot in annotations_train['annotations']:  # ex : {'image_id': 318556, 'id': 48, 'caption': 'A very clean and well decorated empty bathroom'}
+#     caption = '<start> ' + annot['caption'] + ' <end>'
+#     image_id = annot['image_id']
+#
+#     # if dup[image_id]:
+#     #     continue
+#     # dup[image_id] = True
+#
+#     full_image_path = PATH_COCO_TRAIN + 'COCO_train2014_' + '%012d.jpg' % image_id
+#
+#     all_img_name_vector.append(full_image_path)
+#     all_captions.append(caption)
 
-    if dup[image_id]:
+# Append COCO val captions
+# for annot in annotations_val['annotations']:
+#     caption = '<start> ' + annot['caption'] + ' <end>'
+#     image_id = annot['image_id']
+#
+#     # if dup[image_id]:
+#     #     continue
+#     # dup[image_id] = True
+#
+#     full_image_path = PATH_COCO_VAL + 'COCO_val2014_' + '%012d.jpg' % image_id
+#
+#     all_img_name_vector.append(full_image_path)
+#     all_captions.append(caption)
+
+# print(len(all_captions), len(all_img_name_vector))  # 123287
+
+flickr_dataset = pd.read_csv(PATH_FLICKR + 'results.csv', delimiter='|')
+flickr_dataset = flickr_dataset.to_numpy()
+
+# Append Flickr3k captions
+for image_name, comment_number, comment in flickr_dataset:
+    if type(comment) != str:
         continue
-    dup[image_id] = True
 
-    full_coco_image_path = PATH_TRAIN + 'COCO_train2014_' + '%012d.jpg' % image_id
+    # if int(comment_number) != 0:
+    #     continue
 
-    all_img_name_vector.append(full_coco_image_path)
-    all_captions.append(caption)
+    caption = '<start> ' + str(comment) + ' <end>'
 
-for annot in annotations_val['annotations']:
-    caption = '<start> ' + annot['caption'] + ' <end>'
-    image_id = annot['image_id']
-
-    if dup[image_id]:
-        continue
-    dup[image_id] = True
-
-    full_coco_image_path = PATH_VAL + 'COCO_val2014_' + '%012d.jpg' % image_id
-
-    all_img_name_vector.append(full_coco_image_path)
+    full_image_path = PATH_FLICKR + image_name
+    all_img_name_vector.append(full_image_path)
     all_captions.append(caption)
 
 # print(len(all_captions), len(all_img_name_vector))  # 123287
+# assert False
 
 # Shuffle captions and image_names together
 # Set a random state, which always guaranteed to have the same shuffle
@@ -148,7 +174,6 @@ image_dataset = image_dataset.map(load_image, num_parallel_calls=tf.data.experim
 #     for bf, p in zip(batch_features, path):
 #         path_of_feature = p.numpy().decode("utf-8")
 #         np.save(path_of_feature, bf.numpy())
-# assert False
 
 
 # Choose the top 5000 words from the vocabulary
@@ -171,7 +196,7 @@ tokenizer.index_word[0] = '<pad>'
 # Create the tokenized vectors
 train_seqs = tokenizer.texts_to_sequences(train_captions)
 
-# print(train_seqs[:500])
+# print(tokenizer.sequences_to_texts(train_seqs[:10]))
 # assert False
 
 # Pad each vector to the max_length of the captions
@@ -193,7 +218,7 @@ img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vec
 # print(cap_train[:5])
 # assert False
 
-EPOCHS = 5
+EPOCHS = 1
 REPORT_PER_BATCH = 100
 EPOCHS_TO_SAVE = 1
 BATCH_SIZE = 80
@@ -258,11 +283,11 @@ def loss_function(real, pred):
 
 
 # Checkpoints
-checkpoint_path = "./checkpoints/train8"
+checkpoint_path = "./checkpoints/train9"
 ckpt = tf.train.Checkpoint(encoder=encoder,
                            decoder=decoder,
                            optimizer=optimizer)
-ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=10)
+ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
 
 start_epoch = 0
 if ckpt_manager.latest_checkpoint:
@@ -473,10 +498,10 @@ image_url = 'https://tensorflow.org/images/surf.jpg'
 # image_url = 'https://post-phinf.pstatic.net/MjAxOTAyMTVfMjc2/MDAxNTUwMjA4NzE2MTIy.-Cae85qV570pF0FsWyoF2P4oEdooap7xS5vyfr3cGXUg.UaJFjECmhav26t5L985R9eg_cVS8zEDmyj_ihBrPR3wg.JPEG/3.jpg?type=w1200'
 # image_url = 'https://raw.githubusercontent.com/yashk2810/Image-Captioning/master/images/frisbee.png'
 image_extension = image_url[-4:]
-image_path = tf.keras.utils.get_file('coffee' + image_extension, origin=image_url)
+full_image_path = tf.keras.utils.get_file('coffee' + image_extension, origin=image_url)
 
-result, attention_plot = evaluate(image_path)
+result, attention_plot = evaluate(full_image_path)
 print('Prediction Caption:', ' '.join(result))
-plot_attention(image_path, result, attention_plot)
+plot_attention(full_image_path, result, attention_plot)
 # opening the image
-Image.open(image_path)
+Image.open(full_image_path)
