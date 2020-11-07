@@ -79,32 +79,32 @@ all_img_name_vector = []
 dup = [False] * 600000
 
 # Append COCO train captions
-# for annot in annotations_train['annotations']:  # ex : {'image_id': 318556, 'id': 48, 'caption': 'A very clean and well decorated empty bathroom'}
-#     caption = '<start> ' + annot['caption'] + ' <end>'
-#     image_id = annot['image_id']
-#
-#     # if dup[image_id]:
-#     #     continue
-#     # dup[image_id] = True
-#
-#     full_image_path = PATH_COCO_TRAIN + 'COCO_train2014_' + '%012d.jpg' % image_id
-#
-#     all_img_name_vector.append(full_image_path)
-#     all_captions.append(caption)
+for annot in annotations_train['annotations']:  # ex : {'image_id': 318556, 'id': 48, 'caption': 'A very clean and well decorated empty bathroom'}
+    caption = '<start> ' + annot['caption'] + ' <end>'
+    image_id = annot['image_id']
+
+    # if dup[image_id]:
+    #     continue
+    # dup[image_id] = True
+
+    full_image_path = PATH_COCO_TRAIN + 'COCO_train2014_' + '%012d.jpg' % image_id
+
+    all_img_name_vector.append(full_image_path)
+    all_captions.append(caption)
 
 # Append COCO val captions
-# for annot in annotations_val['annotations']:
-#     caption = '<start> ' + annot['caption'] + ' <end>'
-#     image_id = annot['image_id']
-#
-#     # if dup[image_id]:
-#     #     continue
-#     # dup[image_id] = True
-#
-#     full_image_path = PATH_COCO_VAL + 'COCO_val2014_' + '%012d.jpg' % image_id
-#
-#     all_img_name_vector.append(full_image_path)
-#     all_captions.append(caption)
+for annot in annotations_val['annotations']:
+    caption = '<start> ' + annot['caption'] + ' <end>'
+    image_id = annot['image_id']
+
+    # if dup[image_id]:
+    #     continue
+    # dup[image_id] = True
+
+    full_image_path = PATH_COCO_VAL + 'COCO_val2014_' + '%012d.jpg' % image_id
+
+    all_img_name_vector.append(full_image_path)
+    all_captions.append(caption)
 
 # print(len(all_captions), len(all_img_name_vector))  # 123287
 
@@ -132,14 +132,15 @@ for image_name, comment_number, comment in flickr_dataset:
 # Set a random state, which always guaranteed to have the same shuffle
 train_captions, img_name_vector = shuffle(all_captions, all_img_name_vector, random_state=1)
 
-
 # Select the first N captions from the shuffled set
 # num_examples = 1024
 # train_captions = train_captions[:num_examples]
 # img_name_vector = img_name_vector[:num_examples]
 
 
-# print(len(train_captions), len(all_captions))  # 30000 414113
+print(len(train_captions), len(all_captions))  # 30000 414113
+
+
 # print(train_captions[:3])
 
 
@@ -218,10 +219,10 @@ img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vec
 # print(cap_train[:5])
 # assert False
 
-EPOCHS = 1
+EPOCHS = 0
 REPORT_PER_BATCH = 100
 EPOCHS_TO_SAVE = 1
-BATCH_SIZE = 80
+BATCH_SIZE = 100
 BUFFER_SIZE = 10000
 embedding_dim = 128
 feature_dim = 64
@@ -481,7 +482,7 @@ def plot_attention(image, result, attention_plot):
 
 
 # captions on the validation set
-for it in range(3):
+for it in range(0):
     rid = np.random.randint(0, len(img_name_val))
     image = img_name_val[rid]
     real_caption = ' '.join([tokenizer.index_word[i] for i in cap_val[rid] if i not in [0]])
@@ -493,12 +494,13 @@ for it in range(3):
 
 # assert False
 
-image_url = 'https://tensorflow.org/images/surf.jpg'
+# image_url = 'https://tensorflow.org/images/surf.jpg'
 # image_url = 'https://upload.wikimedia.org/wikipedia/commons/4/45/A_small_cup_of_coffee.JPG'
 # image_url = 'https://post-phinf.pstatic.net/MjAxOTAyMTVfMjc2/MDAxNTUwMjA4NzE2MTIy.-Cae85qV570pF0FsWyoF2P4oEdooap7xS5vyfr3cGXUg.UaJFjECmhav26t5L985R9eg_cVS8zEDmyj_ihBrPR3wg.JPEG/3.jpg?type=w1200'
 # image_url = 'https://raw.githubusercontent.com/yashk2810/Image-Captioning/master/images/frisbee.png'
+image_url = 'https://pds.joins.com/news/component/htmlphoto_mmdata/201910/30/f06c4fe8-dfa9-4ae4-af32-1aa0505d5cb1.jpg'
 image_extension = image_url[-4:]
-full_image_path = tf.keras.utils.get_file('coffee' + image_extension, origin=image_url)
+full_image_path = tf.keras.utils.get_file('pink_dressed_woman' + image_extension, origin=image_url)
 
 result, attention_plot = evaluate(full_image_path)
 print('Prediction Caption:', ' '.join(result))

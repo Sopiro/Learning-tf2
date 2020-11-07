@@ -1,5 +1,5 @@
 import numpy as np
-# import tensorflow as tf
+import tensorflow as tf
 import matplotlib.pyplot as plt
 import os
 import pandas as pd
@@ -119,12 +119,28 @@ import pandas as pd
 #
 # print(c.shape)
 
-folder = '30_image_captioning/flickr30k_images'
+# folder = '30_image_captioning/flickr30k_images'
+#
+# data = pd.read_csv(folder + '/results.csv', delimiter='|')
+#
+# print(data.info())
+#
+# for a, b, c in data.values:
+#     if type(c) != str:
+#         print(a, b, c)
 
-data = pd.read_csv(folder + '/results.csv', delimiter='|')
+# a = np.arange(10)[:, np.newaxis]
+# b = np.arange(8)[np.newaxis, :]
+#
+# c = a * b
+# print(c)
+#
+# c[:, 0::2] = 2
+# c[:, 1::2] = 3
+#
+# print(c)
 
-print(data.info())
+a = tf.convert_to_tensor(((1, 2, 3), (4, 5, 6)))
+b = tf.convert_to_tensor(((1, 1, 1), (2, 2, 2), (3, 3, 3), (4, 4, 4)))
 
-for a, b, c in data.values:
-    if type(c) != str:
-        print(a, b, c)
+print(tf.matmul(a, b, transpose_b=True))
