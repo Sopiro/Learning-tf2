@@ -22,14 +22,12 @@ tokenizer_pt = tfds.features.text.SubwordTextEncoder.build_from_corpus((pt.numpy
 
 BUFFER_SIZE = 20000
 BATCH_SIZE = 64
+MAX_LENGTH = 40
 
 
 def encode(lang1, lang2):
-    lang1 = [tokenizer_pt.vocab_size] + tokenizer_pt.encode(
-        lang1.numpy()) + [tokenizer_pt.vocab_size + 1]
-
-    lang2 = [tokenizer_en.vocab_size] + tokenizer_en.encode(
-        lang2.numpy()) + [tokenizer_en.vocab_size + 1]
+    lang1 = [tokenizer_pt.vocab_size] + tokenizer_pt.encode(lang1.numpy()) + [tokenizer_pt.vocab_size + 1]
+    lang2 = [tokenizer_en.vocab_size] + tokenizer_en.encode(lang2.numpy()) + [tokenizer_en.vocab_size + 1]
 
     return lang1, lang2
 
@@ -42,22 +40,22 @@ def tf_encode(pt, en):
     return result_pt, result_en
 
 
-MAX_LENGTH = 40
-
-
 def filter_max_length(x, y, max_length=MAX_LENGTH):
     return tf.logical_and(tf.size(x) <= max_length, tf.size(y) <= max_length)
 
 
 train_dataset = train_examples.map(tf_encode)
 train_dataset = train_dataset.filter(filter_max_length)
-# cache the dataset to memory to get a speedup while reading from it.
+# Cache the dataset to memory to get a speedup while reading from it.
 train_dataset = train_dataset.cache()
 train_dataset = train_dataset.shuffle(BUFFER_SIZE).padded_batch(BATCH_SIZE)
 train_dataset = train_dataset.prefetch(tf.data.experimental.AUTOTUNE)
 
 val_dataset = val_examples.map(tf_encode)
 val_dataset = val_dataset.filter(filter_max_length).padded_batch(BATCH_SIZE)
+
+# pt_batch, en_batch = next(iter(val_dataset))
+# print(pt_batch, en_batch)
 
 # pos_encoding = positional_encoding(50, 1024)
 # print(pos_encoding.shape)
@@ -80,12 +78,19 @@ dropout_rate = 0.1
 
 learning_rate = CustomSchedule(d_model)
 
+# plt.plot(learning_rate(tf.range(40000, dtype=tf.float32)))
+# plt.ylabel("Learning Rate")
+# plt.xlabel("Train Step")
+# plt.show()
+
 optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
 
 loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
 
 
 def loss_function(real, pred):
+    # real.shape == (batch_size, seq_len)
+    # pred.shape == (batch_size, seq_len, vocab_size)
     mask = tf.math.logical_not(tf.math.equal(real, 0))
     loss_ = loss_object(real, pred)
 
@@ -125,8 +130,7 @@ def create_masks(inp, tar):
     dec_padding_mask = create_padding_mask(inp)
 
     # Used in the 1st attention block in the decoder.
-    # It is used to pad and mask future tokens in the input received by
-    # the decoder.
+    # It is used to pad and mask future tokens in the input received by the decoder.
     look_ahead_mask = create_look_ahead_mask(tf.shape(tar)[1])
     dec_target_padding_mask = create_padding_mask(tar)
     combined_mask = tf.maximum(dec_target_padding_mask, look_ahead_mask)
@@ -146,7 +150,7 @@ if ckpt_manager.latest_checkpoint:
     ckpt.restore(ckpt_manager.latest_checkpoint)
     print('Latest checkpoint restored!!')
 
-EPOCHS = 19
+EPOCHS = 20
 
 # The @tf.function trace-compiles train_step into a TF graph for faster
 # execution. The function specializes to the precise shape of the argument
@@ -207,8 +211,7 @@ def evaluate(inp_sentence):
     inp_sentence = start_token + tokenizer_pt.encode(inp_sentence) + end_token
     encoder_input = tf.expand_dims(inp_sentence, 0)
 
-    # as the target is english, the first word to the transformer should be the
-    # english start token.
+    # as the target is english, the first word to the transformer should be the english start token.
     decoder_input = [tokenizer_en.vocab_size]
     output = tf.expand_dims(decoder_input, 0)
 
@@ -232,8 +235,7 @@ def evaluate(inp_sentence):
         if predicted_id == tokenizer_en.vocab_size + 1:
             return tf.squeeze(output, axis=0)
 
-        # concatentate the predicted_id to the output which is given to the decoder
-        # as its input.
+        # concatenate the predicted_id to the output which is given to the decoder as its input.
         output = tf.concat([output, predicted_id], axis=-1)
 
     return tf.squeeze(output, axis=0)

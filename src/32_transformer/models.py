@@ -28,6 +28,7 @@ class Encoder(tf.keras.layers.Layer):
         self.dropout = tf.keras.layers.Dropout(dropout_rate)
 
     def call(self, x, training, mask):
+        # x.shape == (batch_size, seq_len)
         seq_len = tf.shape(x)[1]
 
         # Adding embedding and position encoding.
@@ -68,6 +69,7 @@ class Decoder(tf.keras.layers.Layer):
         self.dropout = tf.keras.layers.Dropout(dropout_rate)
 
     def call(self, x, enc_output, training, look_ahead_mask, padding_mask):
+        # x.shape == (batch_size, seq_len)
         seq_len = tf.shape(x)[1]
 
         x = self.embedding(x)  # (batch_size, target_seq_len, d_model)
@@ -106,6 +108,8 @@ class Transformer(tf.keras.Model):
         self.final_layer = tf.keras.layers.Dense(target_vocab_size)
 
     def call(self, input_data, target_data, training, enc_padding_mask, look_ahead_mask, dec_padding_mask):
+        # input_data.shape == (batch_size, seq_len)
+        # target_data.shape == (batch_size, seq_len)
         # enc_output.shape == (batch_size, inp_seq_len, d_model)
         enc_output = self.encoder(input_data, training, enc_padding_mask)
 

@@ -145,12 +145,21 @@ import pandas as pd
 #
 # print(tf.matmul(a, b, transpose_b=True))
 
-a = tf.keras.metrics.Mean()
-b = tf.keras.metrics.Mean()
+# a = tf.keras.metrics.Mean()
+# b = tf.keras.metrics.Mean()
+#
+# for i in range(1, 11):
+#     a(i)
+#     b.update_state(i)
+#
+# print(a.result())
+# print(b.result())
 
-for i in range(1, 11):
-    a(i)
-    b.update_state(i)
+a = tf.constant([[[2, 20, 30, 3, 6]], [[2, 20, 30, 3, 60]]])
 
-print(a.result())
-print(b.result())
+print(a.shape)
+
+b = tf.argmax(a, axis=-1)
+
+print(b)
+print(tf.squeeze(b))
