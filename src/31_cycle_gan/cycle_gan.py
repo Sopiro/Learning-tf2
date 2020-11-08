@@ -1,7 +1,7 @@
 import time
 import matplotlib.pyplot as plt
-from model import *
-from dataset_loader import *
+from .model import *
+from .dataset_loader import *
 import tqdm
 
 gpus = tf.config.experimental.list_physical_devices('GPU')

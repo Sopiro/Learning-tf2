@@ -6,7 +6,7 @@ from sklearn.utils import shuffle
 import numpy as np
 import os
 import json
-import models
+from . import models
 import time
 import matplotlib.pyplot as plt
 from PIL import Image

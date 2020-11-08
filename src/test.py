@@ -140,7 +140,17 @@ import pandas as pd
 #
 # print(c)
 
-a = tf.convert_to_tensor(((1, 2, 3), (4, 5, 6)))
-b = tf.convert_to_tensor(((1, 1, 1), (2, 2, 2), (3, 3, 3), (4, 4, 4)))
+# a = tf.convert_to_tensor(((1, 2, 3), (4, 5, 6)))
+# b = tf.convert_to_tensor(((1, 1, 1), (2, 2, 2), (3, 3, 3), (4, 4, 4)))
+#
+# print(tf.matmul(a, b, transpose_b=True))
 
-print(tf.matmul(a, b, transpose_b=True))
+a = tf.keras.metrics.Mean()
+b = tf.keras.metrics.Mean()
+
+for i in range(1, 11):
+    a(i)
+    b.update_state(i)
+
+print(a.result())
+print(b.result())

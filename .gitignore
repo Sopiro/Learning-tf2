@@ -15,3 +15,5 @@ src/30_image_captioning/flickr30k_images
 src/test.py
 src/31_cycle_gan/dataset
 src/31_cycle_gan/checkpoints
+src/32_transformer/checkpoints
+src/32_transformer/checkpoints/
