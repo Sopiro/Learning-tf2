@@ -6,12 +6,12 @@ from sklearn.utils import shuffle
 import numpy as np
 import os
 import json
-from . import models
 import time
 import matplotlib.pyplot as plt
 from PIL import Image
 import pandas as pd
 from tqdm import tqdm
+from ch30_image_captioning.models import *
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
@@ -26,8 +26,12 @@ if gpus:
         print(e)
 
 # Download caption annotation files
-annotation_folder = './annotations/'
-if not os.path.exists(os.path.abspath('.') + annotation_folder):
+
+BASE_PATH = os.path.abspath('../../datasets')
+
+annotation_folder = '/annotations/'
+
+if not os.path.exists(BASE_PATH + annotation_folder):
     annotation_zip = tf.keras.utils.get_file('captions.zip',
                                              cache_subdir=os.path.abspath('..'),
                                              origin='http://images.cocodataset.org/annotations/annotations_trainval2014.zip',
@@ -36,12 +40,12 @@ if not os.path.exists(os.path.abspath('.') + annotation_folder):
     annotation_val = os.path.dirname(annotation_zip) + '/annotations/captions_val2014.json'
     os.remove(annotation_zip)
 else:
-    annotation_train = os.path.abspath('.') + '/annotations/captions_train2014.json'
-    annotation_val = os.path.abspath('.') + '/annotations/captions_val2014.json'
+    annotation_train = BASE_PATH + '/annotations/captions_train2014.json'
+    annotation_val = BASE_PATH + '/annotations/captions_val2014.json'
 
 # Download image files
-image_folder_train = './train2014/'
-if not os.path.exists(os.path.abspath('.') + image_folder_train):
+image_folder_train = '/train2014/'
+if not os.path.exists(BASE_PATH + image_folder_train):
     image_zip = tf.keras.utils.get_file('train2014.zip',
                                         cache_subdir=os.path.abspath('..'),
                                         origin='http://images.cocodataset.org/zips/train2014.zip',
@@ -49,11 +53,11 @@ if not os.path.exists(os.path.abspath('.') + image_folder_train):
     PATH_COCO_TRAIN = os.path.dirname(image_zip) + image_folder_train
     os.remove(image_zip)
 else:
-    PATH_COCO_TRAIN = os.path.abspath('.') + image_folder_train
+    PATH_COCO_TRAIN = BASE_PATH + image_folder_train
 
 # Download image files
-image_folder_val = './val2014/'
-if not os.path.exists(os.path.abspath('.') + image_folder_val):
+image_folder_val = '/val2014/'
+if not os.path.exists(BASE_PATH + image_folder_val):
     image_zip = tf.keras.utils.get_file('val2014.zip',
                                         cache_subdir=os.path.abspath('..'),
                                         origin='http://images.cocodataset.org/zips/val2014.zip',
@@ -61,9 +65,9 @@ if not os.path.exists(os.path.abspath('.') + image_folder_val):
     PATH_COCO_VAL = os.path.dirname(image_zip) + image_folder_val
     os.remove(image_zip)
 else:
-    PATH_COCO_VAL = os.path.abspath('.') + image_folder_val
+    PATH_COCO_VAL = BASE_PATH + image_folder_val
 
-PATH_FLICKR = os.path.abspath('.') + '/flickr30k_images/flickr30k_images/'
+PATH_FLICKR = BASE_PATH + '/flickr30k_images/flickr30k_images/'
 
 # Read the json file
 with open(annotation_train, 'r') as f:
@@ -264,8 +268,8 @@ dataset_val = dataset_val.map(lambda item1, item2:
 dataset_val = dataset_val.shuffle(BUFFER_SIZE, reshuffle_each_iteration=True).batch(BATCH_SIZE)
 dataset_val = dataset_val.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
-encoder = models.CNN_Encoder(feature_dim)
-decoder = models.RNN_Decoder(embedding_dim, rnn_units, fc_units, vocab_size)
+encoder = CNN_Encoder(feature_dim)
+decoder = RNN_Decoder(embedding_dim, rnn_units, fc_units, vocab_size)
 
 optimizer = tf.keras.optimizers.Adam()
 loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')

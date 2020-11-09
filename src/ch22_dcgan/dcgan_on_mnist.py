@@ -79,7 +79,7 @@ optimizer_d = tf.keras.optimizers.Adam(2e-4, beta_1=0.5, beta_2=0.999)
 
 EPOCHS = 30
 
-checkpoint_dir = '../gan_training_checkpoints'
+checkpoint_dir = './gan_training_checkpoints'
 checkpoint_prefix = os.path.join(checkpoint_dir, 'ckpt')
 checkpoint = tf.train.Checkpoint(optimizer_g=optimizer_g,
                                  optimizer_d=optimizer_d,
@@ -141,7 +141,7 @@ def generate_and_save_images(model, epoch, test_input, show=False):
         plt.subplot(4, 4, i + 1)
         plt.imshow(predictions[i, :, :, 0] * 0.5 + 0.5, cmap='gray')
         plt.axis('off')
-    plt.savefig('../gan_result/image_at_epoch_{:04d}.png'.format(checkpoint.epochs.numpy()))
+    plt.savefig('./gan_result/image_at_epoch_{:04d}.png'.format(checkpoint.epochs.numpy()))
     if show:
         plt.show()
     plt.close(fig)

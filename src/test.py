@@ -119,7 +119,7 @@ import pandas as pd
 #
 # print(c.shape)
 
-# folder = '30_image_captioning/flickr30k_images'
+# folder = 'ch30_image_captioning/flickr30k_images'
 #
 # data = pd.read_csv(folder + '/results.csv', delimiter='|')
 #

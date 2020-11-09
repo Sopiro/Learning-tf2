@@ -234,8 +234,8 @@ for i in range(max_episodes):
 
     print(i, 'score:', score, 'step:', step, 'max', np.max(obs), 'memory len:', len(replay_memory))
 
-model.save_weights('../dqn_weights/dqn_weights_model')
-target_model.save_weights('../dqn_weights/dqn_weights_target')
+model.save_weights('./dqn_weights/dqn_weights_model')
+target_model.save_weights('./dqn_weights/dqn_weights_target')
 print(scores)
 
 N = 100
