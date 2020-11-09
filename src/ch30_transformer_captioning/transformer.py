@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import time
 import os
-from ch29_transformer.models import *
+from ch30_transformer_captioning.models import *
 import tensorflow_datasets as tfds
 
 examples, metadata = tfds.load('ted_hrlr_translate/pt_to_en', with_info=True, as_supervised=True)
@@ -91,7 +91,6 @@ loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, re
 def loss_function(real, pred):
     # real.shape == (batch_size, seq_len)
     # pred.shape == (batch_size, seq_len, vocab_size)
-
     mask = tf.math.logical_not(tf.math.equal(real, 0))
     loss_ = loss_object(real, pred)
 

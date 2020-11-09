@@ -155,11 +155,24 @@ import pandas as pd
 # print(a.result())
 # print(b.result())
 
-a = tf.constant([[[2, 20, 30, 3, 6]], [[2, 20, 30, 3, 60]]])
+# a = tf.constant([[[2, 20, 30, 3, 6]], [[2, 20, 30, 3, 60]]])
+#
+# print(a.shape)
+#
+# b = tf.argmax(a, axis=-1)
+#
+# print(b)
+# print(tf.squeeze(b))
 
-print(a.shape)
+from ch29_transformer.layers import *
 
-b = tf.argmax(a, axis=-1)
+pos_encoding = positional_encoding(100, 100)
+print(pos_encoding.shape)
 
-print(b)
-print(tf.squeeze(b))
+plt.pcolormesh(pos_encoding[0], cmap='RdBu')
+plt.xlabel('Depth')
+plt.xlim((0, 100))
+plt.ylim((0, 100))
+plt.ylabel('Position')
+plt.colorbar()
+plt.show()

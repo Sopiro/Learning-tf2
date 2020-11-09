@@ -1,8 +1,8 @@
-from ch29_transformer.layers import *
+from ch30_transformer_captioning.layers import *
 
 
 class Encoder(tf.keras.layers.Layer):
-    def __init__(self, num_layers, d_model, num_heads, dff, input_vocab_size, maximum_position_encoding, dropout_rate=0.1):
+    def __init__(self, num_layers, d_model, num_heads, dff, maximum_position_encoding, dropout_rate=0.1):
         """
         Transformer encoder
 
@@ -10,7 +10,6 @@ class Encoder(tf.keras.layers.Layer):
         :param d_model: Model's dimension, Word's embedding dimension
         :param num_heads: Number of heads for Multi-head attention
         :param dff: Feed forward network units
-        :param input_vocab_size: Input space vocabulary size
         :param maximum_position_encoding: This can be the maximum length of sequence or sentence
         :param dropout_rate: Dropout rate
         """
@@ -19,7 +18,7 @@ class Encoder(tf.keras.layers.Layer):
         self.d_model = d_model
         self.num_layers = num_layers
 
-        self.embedding = tf.keras.layers.Embedding(input_vocab_size, d_model)
+        self.embedding = tf.keras.layers.Dense(d_model)
         self.pos_encoding = positional_encoding(maximum_position_encoding, self.d_model)
 
         # Stacking encoder layers
@@ -28,7 +27,7 @@ class Encoder(tf.keras.layers.Layer):
         self.dropout = tf.keras.layers.Dropout(dropout_rate)
 
     def call(self, x, training, mask):
-        # x.shape == (batch_size, seq_len)
+        # x.shape == (batch_size, image_feature_len:64, feature_dim:2048)
         seq_len = tf.shape(x)[1]
 
         # Adding embedding and position encoding.
@@ -86,7 +85,7 @@ class Decoder(tf.keras.layers.Layer):
 
 
 class Transformer(tf.keras.Model):
-    def __init__(self, num_layers, d_model, num_heads, dff, input_vocab_size, target_vocab_size, pe_input, pe_target, dropout_rate=0.1):
+    def __init__(self, num_layers, d_model, num_heads, dff, target_vocab_size, pe_input, pe_target, dropout_rate=0.1):
         """
         Transformer network
 
@@ -102,13 +101,13 @@ class Transformer(tf.keras.Model):
         """
         super(Transformer, self).__init__()
 
-        self.encoder = Encoder(num_layers, d_model, num_heads, dff, input_vocab_size, pe_input, dropout_rate)
+        self.encoder = Encoder(num_layers, d_model, num_heads, dff, pe_input, dropout_rate)
         self.decoder = Decoder(num_layers, d_model, num_heads, dff, target_vocab_size, pe_target, dropout_rate)
 
         self.final_layer = tf.keras.layers.Dense(target_vocab_size)
 
     def call(self, input_data, target_data, training, enc_padding_mask, look_ahead_mask, dec_padding_mask):
-        # input_data.shape == (batch_size, seq_len)
+        # input_data.shape == (batch_size, 64, 2048)
         # target_data.shape == (batch_size, seq_len)
         # enc_output.shape == (batch_size, inp_seq_len, d_model)
         enc_output = self.encoder(input_data, training, enc_padding_mask)

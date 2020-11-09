@@ -1,4 +1,4 @@
-from .layer import *
+from ch28_cycle_gan.layer import *
 
 
 # ResNet Generator

@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import pandas as pd
 from tqdm import tqdm
-from ch30_image_captioning.models import *
+from ch27_image_captioning.models import *
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
