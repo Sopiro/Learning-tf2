@@ -156,8 +156,8 @@ new_input = image_model.input
 hidden_layer = image_model.layers[-1].output
 
 image_features_extract_model = tf.keras.Model(new_input, hidden_layer)
-FEATURE_DIM_A = 11 * 11
-FEATURE_DIM_B = hidden_layer.shape[-1]
+FEATURE_DIM_A = 121
+FEATURE_DIM_B = 1792
 
 # print(image_features_extract_model(tf.expand_dims(load_image('C:/Users/Sopiro/Desktop/20200825/irene.png')[0], 0)).shape)
 # assert False
@@ -199,7 +199,7 @@ print('Max sentence length :', MAX_LENGTH)
 # Create training and validation sets
 img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vector, cap_vector, test_size=0.1, random_state=0)
 
-EPOCHS = 5
+EPOCHS = 0
 REPORT_PER_BATCH = 100
 EPOCHS_TO_SAVE = 1
 BATCH_SIZE = 64
@@ -256,7 +256,6 @@ learning_rate = CustomSchedule(d_model)
 # assert False
 
 optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
-
 loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
 
 train_loss = tf.keras.metrics.Mean(name='train_loss')
@@ -286,30 +285,6 @@ def accuracy_function(real, pred):
     return tf.reduce_sum(accuracies) / tf.reduce_sum(mask)
 
 
-# Checkpoints
-checkpoint_path = "./checkpoints/train"
-ckpt = tf.train.Checkpoint(transformoer=transformer,
-                           optimizer=optimizer)
-ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
-
-start_epoch = 0
-if ckpt_manager.latest_checkpoint:
-    start_epoch = int(ckpt_manager.latest_checkpoint.split('-')[-1]) * EPOCHS_TO_SAVE
-    # restoring the latest checkpoint in checkpoint_path
-    ckpt.restore(ckpt_manager.latest_checkpoint)
-
-print('Start Epoch = ', start_epoch)
-print('Start training for {} epochs'.format(EPOCHS))
-print('Batch Size = ', BATCH_SIZE)
-print('Steps per epoch = ', steps_per_epoch)
-
-loss_train_plot = []
-loss_train_file = checkpoint_path + '/loss_train.npy'
-
-if os.path.exists(loss_train_file):
-    loss_train_plot = np.load(loss_train_file)
-
-
 def create_masks(inp, tar):
     # Encoder padding mask
     enc_padding_mask = create_padding_mask(tf.ones(shape=(tf.shape(inp)[0], tf.shape(inp)[1])))
@@ -328,7 +303,7 @@ def create_masks(inp, tar):
 
 
 train_step_signature = [
-    tf.TensorSpec(shape=(None, 64, 2048), dtype=tf.float32),
+    tf.TensorSpec(shape=(None, 121, 1792), dtype=tf.float32),
     tf.TensorSpec(shape=(None, None), dtype=tf.int32)
 ]
 
@@ -355,6 +330,29 @@ def train_step(inp, tar):
     train_accuracy(accuracy_function(tar_real, predictions))
 
 
+# Checkpoints
+checkpoint_path = "./checkpoints/train"
+ckpt = tf.train.Checkpoint(transformoer=transformer,
+                           optimizer=optimizer)
+ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
+
+start_epoch = 0
+if ckpt_manager.latest_checkpoint:
+    start_epoch = int(ckpt_manager.latest_checkpoint.split('-')[-1]) * EPOCHS_TO_SAVE
+    # restoring the latest checkpoint in checkpoint_path
+    ckpt.restore(ckpt_manager.latest_checkpoint)
+
+print('Start Epoch = ', start_epoch)
+print('Start training for {} epochs'.format(EPOCHS))
+print('Batch Size = ', BATCH_SIZE)
+print('Steps per epoch = ', steps_per_epoch)
+
+loss_train_plot = []
+loss_train_file = checkpoint_path + '/loss_train.npy'
+
+if os.path.exists(loss_train_file):
+    loss_train_plot = np.load(loss_train_file)
+
 for epoch in range(EPOCHS):
     start = time.time()
 
@@ -367,7 +365,7 @@ for epoch in range(EPOCHS):
         train_step(img_tensor, target)
 
         if batch % REPORT_PER_BATCH == 0:
-            print('Epoch {} Batch {}/{} Loss {:.4f} Accuracy {:.4f}'.format(current_epoch, batch, steps_per_epoch, train_loss.result(), train_accuracy.result()))
+            print('Epoch {} Batch {}/{} Loss {:.6f} Accuracy {:.6f}'.format(current_epoch, batch, steps_per_epoch, train_loss.result(), train_accuracy.result()))
             loss_train_plot = np.append(loss_train_plot, train_loss.result())
 
     if (epoch + 1) % EPOCHS_TO_SAVE == 0:
@@ -377,7 +375,7 @@ for epoch in range(EPOCHS):
     print('Epoch {} Loss {:.6f} Accuracy {:.6f}'.format(current_epoch, train_loss.result(), train_accuracy.result()))
     loss_train_plot = np.append(loss_train_plot, train_loss.result())
 
-    print('Time taken for 1 epoch {} sec\n'.format(time.time() - start))
+    print('Time taken for {} epoch {} sec\n'.format(current_epoch, time.time() - start))
 
 np.save(loss_train_file, loss_train_plot)
 
