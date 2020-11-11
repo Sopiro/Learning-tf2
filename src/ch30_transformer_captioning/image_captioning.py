@@ -145,20 +145,22 @@ print('All captions :', len(all_captions))  # 30000 414113
 def load_image(image_path):
     img = tf.io.read_file(image_path)
     img = tf.image.decode_jpeg(img, channels=3)
-    img = tf.image.resize(img, (299, 299))
-    img = tf.keras.applications.inception_v3.preprocess_input(img)
+    img = tf.image.resize(img, (380, 380))  # (380, 380) for efficient-netB4
+    img = tf.keras.applications.efficientnet.preprocess_input(img)
     return img, image_path
 
 
 # Initialize Inception-V3 with pretrained weight
-image_model = tf.keras.applications.InceptionV3(include_top=False, weights='imagenet')
+image_model = tf.keras.applications.EfficientNetB4(include_top=False, weights='imagenet')
 new_input = image_model.input
 hidden_layer = image_model.layers[-1].output
 
-# Shape of the vector extracted from InceptionV3 is (64, 2048)
 image_features_extract_model = tf.keras.Model(new_input, hidden_layer)
-FEATURE_DIM_A = 64
-FEATURE_DIM_B = 2048
+FEATURE_DIM_A = 11 * 11
+FEATURE_DIM_B = hidden_layer.shape[-1]
+
+# print(image_features_extract_model(tf.expand_dims(load_image('C:/Users/Sopiro/Desktop/20200825/irene.png')[0], 0)).shape)
+# assert False
 
 # Make unique with sorted(set)
 encode_train = sorted(set(img_name_vector))
@@ -166,9 +168,9 @@ encode_train = sorted(set(img_name_vector))
 image_dataset = tf.data.Dataset.from_tensor_slices(encode_train)
 image_dataset = image_dataset.map(load_image, num_parallel_calls=tf.data.experimental.AUTOTUNE).batch(16)
 
-# Disk-caching the features extracted from InceptionV3
+# Disk-caching the features extracted from pre-trained model
 # You just have got to do this once
-# for img, path in tqdm.tqdm(image_dataset):
+# for img, path in tqdm(image_dataset):
 #     batch_features = image_features_extract_model(img)
 #     batch_features = tf.reshape(batch_features, (batch_features.shape[0], -1, batch_features.shape[3]))
 #
@@ -176,9 +178,8 @@ image_dataset = image_dataset.map(load_image, num_parallel_calls=tf.data.experim
 #         path_of_feature = p.numpy().decode("utf-8")
 #         np.save(path_of_feature, bf.numpy())
 
-
 # Choose the top 5000 words from the vocabulary
-num_words = 10000
+num_words = 30000
 tokenizer = tf.keras.preprocessing.text.Tokenizer(num_words=num_words, oov_token="<unk>", filters='!"#$%&()*+.,-/:;=?@[\]^_`{|}~ ')
 tokenizer.fit_on_texts(train_captions)
 # train_seqs = tokenizer.texts_to_sequences(train_captions)
@@ -201,7 +202,7 @@ img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vec
 EPOCHS = 5
 REPORT_PER_BATCH = 100
 EPOCHS_TO_SAVE = 1
-BATCH_SIZE = 100
+BATCH_SIZE = 64
 
 BUFFER_SIZE = 20000
 num_layers = 6
@@ -209,6 +210,7 @@ d_model = 512
 dff = 2048
 num_heads = 8
 dropout_rate = 0.1
+max_position_encodings = 256
 
 vocab_size = num_words + 1
 steps_per_epoch = len(img_name_train) // BATCH_SIZE
@@ -236,11 +238,22 @@ dataset_val = dataset_val.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 # Transformer model
 transformer = Transformer(num_layers, d_model, num_heads, dff,
                           vocab_size,
-                          pe_input=vocab_size,
-                          pe_target=vocab_size,
+                          pe_input=max_position_encodings,
+                          pe_target=max_position_encodings,
                           dropout_rate=dropout_rate)
 
 learning_rate = CustomSchedule(d_model)
+# learning_rate = lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+#     1e-4,
+#     decay_steps=100000,
+#     decay_rate=0.96,
+#     staircase=True)
+#
+# plt.plot(learning_rate(tf.range(100000, dtype=tf.float32)))
+# plt.ylabel("Learning Rate")
+# plt.xlabel("Train Step")
+# plt.show()
+# assert False
 
 optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
 
@@ -299,11 +312,11 @@ if os.path.exists(loss_train_file):
 
 def create_masks(inp, tar):
     # Encoder padding mask
-    enc_padding_mask = create_padding_mask(tf.ones(shape=(tf.shape(inp)[0], FEATURE_DIM_A)))
+    enc_padding_mask = create_padding_mask(tf.ones(shape=(tf.shape(inp)[0], tf.shape(inp)[1])))
 
     # Used in the 2nd attention block in the decoder.
     # This padding mask is used to mask the encoder outputs.
-    dec_padding_mask = create_padding_mask(tf.ones(shape=(tf.shape(inp)[0], FEATURE_DIM_A)))
+    dec_padding_mask = create_padding_mask(tf.ones(shape=(tf.shape(inp)[0], tf.shape(inp)[1])))
 
     # Used in the 1st attention block in the decoder.
     # It is used to pad and mask future tokens in the input received by the decoder.
@@ -323,7 +336,7 @@ train_step_signature = [
 # @tf.function(input_signature=train_step_signature)
 @tf.function
 def train_step(inp, tar):
-    # inp.shape == (batch_size, 64, 2048)
+    # inp.shape == (batch_size, 121, 2048)
     # tar.shape == (batch_size, seq_len)
 
     tar_inp = tar[:, :-1]
@@ -446,4 +459,5 @@ image_url = 'https://tensorflow.org/images/surf.jpg'
 image_extension = image_url[-4:]
 full_image_path = tf.keras.utils.get_file('image' + image_extension, origin=image_url)
 
-decode_and_plot(full_image_path)
+# decode_and_plot(full_image_path)
+decode_and_plot('C:/Users/Sopiro/Desktop/20200825/uchan.jpg')

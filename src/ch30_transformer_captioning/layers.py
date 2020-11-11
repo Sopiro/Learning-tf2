@@ -165,8 +165,8 @@ class EncoderLayer(tf.keras.layers.Layer):
         self.mha = MultiHeadAttention(d_model, num_heads)
         self.ffn = point_wise_feed_forward_network(d_model, dff)
 
-        self.layer_norm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-        self.layer_norm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+        self.layer_norm1 = tf.keras.layers.LayerNormalization(epsilon=1e-9)
+        self.layer_norm2 = tf.keras.layers.LayerNormalization(epsilon=1e-9)
 
         self.dropout1 = tf.keras.layers.Dropout(dropout_rate)
         self.dropout2 = tf.keras.layers.Dropout(dropout_rate)

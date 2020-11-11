@@ -19,6 +19,8 @@ class Encoder(tf.keras.layers.Layer):
         self.num_layers = num_layers
 
         self.embedding = tf.keras.layers.Dense(d_model)
+        self.relu = tf.keras.layers.ReLU()
+        self.bnorm = tf.keras.layers.BatchNormalization()
         self.pos_encoding = positional_encoding(maximum_position_encoding, self.d_model)
 
         # Stacking encoder layers
@@ -27,12 +29,14 @@ class Encoder(tf.keras.layers.Layer):
         self.dropout = tf.keras.layers.Dropout(dropout_rate)
 
     def call(self, x, training, mask):
-        # x.shape == (batch_size, image_feature_len:64, feature_dim:2048)
+        # x.shape == (batch_size, image_feature_len:110, feature_dim)
         seq_len = tf.shape(x)[1]
 
         # Adding embedding and position encoding.
         x = self.embedding(x)  # (batch_size, input_seq_len, d_model)
-        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))  # Scaling for normalization
+        x = self.relu(x)
+        x = self.bnorm(x)
+        # x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))  # Scaling for normalization
         x += self.pos_encoding[:, :seq_len, :]  # Broadcasting works here
 
         x = self.dropout(x, training=training)
@@ -131,4 +135,4 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
         arg1 = tf.math.rsqrt(step)
         arg2 = step * (self.warmup_steps ** -1.5)
 
-        return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
+        return tf.math.rsqrt(self.d_model) * 0.2 * tf.math.minimum(arg1, arg2)
