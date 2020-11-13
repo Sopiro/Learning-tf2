@@ -12,3 +12,4 @@ src/ch28_cycle_gan/checkpoints
 src/ch28_cycle_gan/dataset
 src/ch29_transformer/checkpoints
 src/ch30_transformer_captioning/checkpoints
+src/ch30_transformer_captioning/tokenizer.json

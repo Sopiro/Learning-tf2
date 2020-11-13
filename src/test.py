@@ -164,15 +164,46 @@ import pandas as pd
 # print(b)
 # print(tf.squeeze(b))
 
-from ch29_transformer.layers import *
+# from ch29_transformer.layers import *
+#
+# pos_encoding = positional_encoding(100, 100)
+# print(pos_encoding.shape)
+#
+# plt.pcolormesh(pos_encoding[0], cmap='RdBu')
+# plt.xlabel('Depth')
+# plt.xlim((0, 100))
+# plt.ylim((0, 100))
+# plt.ylabel('Position')
+# plt.colorbar()
+# plt.show()
 
-pos_encoding = positional_encoding(100, 100)
-print(pos_encoding.shape)
+from ch30_transformer_captioning.models import *
 
-plt.pcolormesh(pos_encoding[0], cmap='RdBu')
-plt.xlabel('Depth')
-plt.xlim((0, 100))
-plt.ylim((0, 100))
-plt.ylabel('Position')
-plt.colorbar()
+learning_rate = CustomSchedule(512)
+plt.plot(learning_rate(tf.range(40000, dtype=tf.float32)))
+plt.ylabel("Learning Rate")
+plt.xlabel("Train Step")
 plt.show()
+
+# loss_object = tf.keras.losses.CategoricalCrossentropy(from_logits=True, reduction='none', label_smoothing=0.1)
+#
+#
+# def loss_function(real, pred):
+#     # real.shape == (batch_size, seq_len)
+#     # pred.shape == (batch_size, seq_len, vocab_size)
+#     real = tf.one_hot(tf.cast(real, tf.int32), pred.shape[-1])
+#
+#     loss_ = loss_object(real, pred)
+#
+#     print(loss_)
+#
+#     return tf.reduce_sum(loss_)
+#
+#
+# a = tf.convert_to_tensor([[0, 0, 0], [1, 0, 0], [0, 1, 1]], dtype=tf.float32)
+# b = tf.convert_to_tensor([[[1, 0], [1, 0], [1, 0]],
+#                           [[0.9, 0.1], [0.9, 0.1], [0.9, 0.1]],
+#                           [[0.9, 0.1], [0.9, 0.1], [0.9, 0.1]]], dtype=tf.float32)
+#
+#
+# print('result', loss_function(a, b))

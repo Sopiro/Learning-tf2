@@ -9,6 +9,7 @@ from PIL import Image
 import pandas as pd
 from tqdm import tqdm
 from ch30_transformer_captioning.models import *
+import io
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
@@ -77,16 +78,16 @@ with open(annotation_val, 'r') as f:
 all_captions = []
 all_img_name_vector = []
 
-dup = [False] * 600000
+dup = [0] * 600000
 
 # Append COCO train captions
 for annot in annotations_train['annotations']:  # ex : {'image_id': 318556, 'id': 48, 'caption': 'A very clean and well decorated empty bathroom'}
     caption = '<start> ' + annot['caption'] + ' <end>'
     image_id = annot['image_id']
 
-    if dup[image_id]:
+    if dup[image_id] == 2:
         continue
-    dup[image_id] = True
+    dup[image_id] += 1
 
     full_image_path = PATH_COCO_TRAIN + 'COCO_train2014_' + '%012d.jpg' % image_id
 
@@ -98,9 +99,9 @@ for annot in annotations_val['annotations']:
     caption = '<start> ' + annot['caption'] + ' <end>'
     image_id = annot['image_id']
 
-    if dup[image_id]:
+    if dup[image_id] == 2:
         continue
-    dup[image_id] = True
+    dup[image_id] += 1
 
     full_image_path = PATH_COCO_VAL + 'COCO_val2014_' + '%012d.jpg' % image_id
 
@@ -113,18 +114,22 @@ flickr_dataset = pd.read_csv(PATH_FLICKR + 'results.csv', delimiter='|')
 flickr_dataset = flickr_dataset.to_numpy()
 
 # Append Flickr3k captions
-for image_name, comment_number, comment in flickr_dataset:
-    if type(comment) != str:
-        continue
+# for image_name, comment_number, comment in flickr_dataset:
+#     if type(comment) != str:
+#         continue
+#
+#     if len(str(comment).split(';')) > 1:
+#         print(str(comment).split(';')[0])
+#
+#     if int(comment_number) != 0:
+#         continue
+#
+#     caption = '<start> ' + str(comment) + ' <end>'
+#
+#     full_image_path = PATH_FLICKR + image_name
+#     all_img_name_vector.append(full_image_path)
+#     all_captions.append(caption)
 
-    if int(comment_number) != 0:
-        continue
-
-    caption = '<start> ' + str(comment) + ' <end>'
-
-    full_image_path = PATH_FLICKR + image_name
-    all_img_name_vector.append(full_image_path)
-    all_captions.append(caption)
 
 # print(len(all_captions), len(all_img_name_vector))  # 123287
 # assert False
@@ -179,13 +184,19 @@ image_dataset = image_dataset.map(load_image, num_parallel_calls=tf.data.experim
 #         np.save(path_of_feature, bf.numpy())
 
 # Choose the top 5000 words from the vocabulary
-num_words = 30000
+num_words = 20000
 tokenizer = tf.keras.preprocessing.text.Tokenizer(num_words=num_words, oov_token="<unk>", filters='!"#$%&()*+.,-/:;=?@[\]^_`{|}~ ')
 tokenizer.fit_on_texts(train_captions)
 # train_seqs = tokenizer.texts_to_sequences(train_captions)
 
 tokenizer.word_index['<pad>'] = 0
 tokenizer.index_word[0] = '<pad>'
+
+# Saving tokenizer
+# tokenizer_json = tokenizer.to_json()
+# with io.open('tokenizer.json', 'w', encoding='utf-8') as f:
+#     f.write(json.dumps(tokenizer_json, ensure_ascii=False))
+# assert False
 
 # Create the tokenized vectors
 train_seqs = tokenizer.texts_to_sequences(train_captions)
@@ -199,17 +210,18 @@ print('Max sentence length :', MAX_LENGTH)
 # Create training and validation sets
 img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vector, cap_vector, test_size=0.1, random_state=0)
 
-EPOCHS = 0
+EPOCHS = 10
 REPORT_PER_BATCH = 100
 EPOCHS_TO_SAVE = 1
 BATCH_SIZE = 64
 
 BUFFER_SIZE = 20000
-num_layers = 6
+enc_layers = 6
+dec_layers = 6
 d_model = 512
 dff = 2048
 num_heads = 8
-dropout_rate = 0.1
+dropout_rate = 0.3
 max_position_encodings = 256
 
 vocab_size = num_words + 1
@@ -236,7 +248,7 @@ dataset_val = dataset_val.shuffle(BUFFER_SIZE, reshuffle_each_iteration=True).ba
 dataset_val = dataset_val.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
 # Transformer model
-transformer = Transformer(num_layers, d_model, num_heads, dff,
+transformer = Transformer(enc_layers, dec_layers, d_model, num_heads, dff,
                           vocab_size,
                           pe_input=max_position_encodings,
                           pe_target=max_position_encodings,
@@ -245,18 +257,21 @@ transformer = Transformer(num_layers, d_model, num_heads, dff,
 learning_rate = CustomSchedule(d_model)
 # learning_rate = lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
 #     1e-4,
-#     decay_steps=100000,
-#     decay_rate=0.96,
-#     staircase=True)
-#
+#     decay_steps=10000,
+#     decay_rate=0.99)
+
+# learning_rate = tf.keras.optimizers.schedules.InverseTimeDecay(1e-4, 10000, 0.3)
+# learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(1e-4, 10000, 0.5)
+
 # plt.plot(learning_rate(tf.range(100000, dtype=tf.float32)))
 # plt.ylabel("Learning Rate")
 # plt.xlabel("Train Step")
 # plt.show()
 # assert False
 
-optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
-loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
+optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-9)
+# loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
+loss_object = tf.keras.losses.CategoricalCrossentropy(from_logits=True, label_smoothing=0.1, reduction='none')
 
 train_loss = tf.keras.metrics.Mean(name='train_loss')
 train_accuracy = tf.keras.metrics.Mean(name='train_accuracy')
@@ -266,6 +281,7 @@ def loss_function(real, pred):
     # real.shape == (batch_size, seq_len)
     # pred.shape == (batch_size, seq_len, vocab_size)
     mask = tf.math.logical_not(tf.math.equal(real, 0))
+    real = tf.one_hot(tf.cast(real, tf.int32), pred.shape[-1])
     loss_ = loss_object(real, pred)
 
     mask = tf.cast(mask, dtype=loss_.dtype)
@@ -308,8 +324,7 @@ train_step_signature = [
 ]
 
 
-# @tf.function(input_signature=train_step_signature)
-@tf.function
+@tf.function(input_signature=train_step_signature)
 def train_step(inp, tar):
     # inp.shape == (batch_size, 121, 2048)
     # tar.shape == (batch_size, seq_len)
@@ -458,4 +473,4 @@ image_extension = image_url[-4:]
 full_image_path = tf.keras.utils.get_file('image' + image_extension, origin=image_url)
 
 # decode_and_plot(full_image_path)
-decode_and_plot('C:/Users/Sopiro/Desktop/20200825/uchan.jpg')
+decode_and_plot('C:/Users/Sopiro/Desktop/20200825/cut.png')

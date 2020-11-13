@@ -89,7 +89,7 @@ class Decoder(tf.keras.layers.Layer):
 
 
 class Transformer(tf.keras.Model):
-    def __init__(self, num_layers, d_model, num_heads, dff, target_vocab_size, pe_input, pe_target, dropout_rate=0.1):
+    def __init__(self, enc_layers, dec_layers, d_model, num_heads, dff, target_vocab_size, pe_input, pe_target, dropout_rate=0.1):
         """
         Transformer network
 
@@ -105,8 +105,8 @@ class Transformer(tf.keras.Model):
         """
         super(Transformer, self).__init__()
 
-        self.encoder = Encoder(num_layers, d_model, num_heads, dff, pe_input, dropout_rate)
-        self.decoder = Decoder(num_layers, d_model, num_heads, dff, target_vocab_size, pe_target, dropout_rate)
+        self.encoder = Encoder(enc_layers, d_model, num_heads, dff, pe_input, dropout_rate)
+        self.decoder = Decoder(dec_layers, d_model, num_heads, dff, target_vocab_size, pe_target, dropout_rate)
 
         self.final_layer = tf.keras.layers.Dense(target_vocab_size)
 
@@ -125,7 +125,7 @@ class Transformer(tf.keras.Model):
 
 
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
-    def __init__(self, d_model, warmup_steps=4000):
+    def __init__(self, d_model, warmup_steps=8000):
         super(CustomSchedule, self).__init__()
 
         self.d_model = tf.cast(d_model, tf.float32)
@@ -135,4 +135,4 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
         arg1 = tf.math.rsqrt(step)
         arg2 = step * (self.warmup_steps ** -1.5)
 
-        return tf.math.rsqrt(self.d_model) * 0.2 * tf.math.minimum(arg1, arg2)
+        return tf.math.rsqrt(self.d_model) * 0.6 * tf.math.minimum(arg1 + 1e-9, arg2 + 1e-8)
