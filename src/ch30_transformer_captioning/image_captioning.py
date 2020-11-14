@@ -10,6 +10,7 @@ import pandas as pd
 from tqdm import tqdm
 from ch30_transformer_captioning.models import *
 import io
+import tensorflow_hub as hub
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
@@ -150,19 +151,20 @@ print('All captions :', len(all_captions))  # 30000 414113
 def load_image(image_path):
     img = tf.io.read_file(image_path)
     img = tf.image.decode_jpeg(img, channels=3)
-    img = tf.image.resize(img, (380, 380))  # (380, 380) for efficient-netB4
-    img = tf.keras.applications.efficientnet.preprocess_input(img)
-    return img, image_path
+    img1 = tf.image.resize(img, (640, 640))  # For Faster-RCNN
+    img2 = tf.image.resize(img, (299, 299))  # For Efficient-Net
+
+    return tf.cast(img1, tf.uint8), tf.keras.applications.inception_v3.preprocess_input(img2), image_path
 
 
 # Initialize Inception-V3 with pretrained weight
-image_model = tf.keras.applications.EfficientNetB4(include_top=False, weights='imagenet')
+image_model = tf.keras.applications.InceptionV3(include_top=False, weights='imagenet')
 new_input = image_model.input
 hidden_layer = image_model.layers[-1].output
 
 image_features_extract_model = tf.keras.Model(new_input, hidden_layer)
-FEATURE_DIM_A = 121
-FEATURE_DIM_B = 1792
+imagenet_feature_dim_a = 64
+imagenet_feature_dim_b = 2048
 
 # print(image_features_extract_model(tf.expand_dims(load_image('C:/Users/Sopiro/Desktop/20200825/irene.png')[0], 0)).shape)
 # assert False
@@ -171,17 +173,51 @@ FEATURE_DIM_B = 1792
 encode_train = sorted(set(img_name_vector))
 
 image_dataset = tf.data.Dataset.from_tensor_slices(encode_train)
-image_dataset = image_dataset.map(load_image, num_parallel_calls=tf.data.experimental.AUTOTUNE).batch(16)
+image_dataset = image_dataset.map(load_image, num_parallel_calls=tf.data.experimental.AUTOTUNE).batch(1)
+
+frcnn = hub.load("https://tfhub.dev/tensorflow/faster_rcnn/resnet101_v1_640x640/1")
+
+num_detections = 64
+frcnn_embedding_dim = 508
+
+assert imagenet_feature_dim_a == num_detections
+
+embedding_table = tf.random.Generator.from_seed(1).uniform((frcnn_embedding_dim, frcnn_embedding_dim))
+# Save embedding table
+path_embedding_table = './checkpoints/embedding/embedding_table.txt'
+# np.savetxt(path_embedding_table, embedding_table.numpy())
+loaded = np.loadtxt(path_embedding_table)
+
+assert np.array_equal(embedding_table, loaded)
+
+
+def extract_feature(img1, img2):
+    frcnn_output = frcnn(img1)
+
+    class_ids = tf.cast(frcnn_output['detection_classes'][:, :num_detections], tf.int32)  # (1, 64)
+    detection_boxes = frcnn_output['detection_boxes'][:, :num_detections]  # (1, 64, 4)
+
+    frcnn_features = tf.concat([tf.nn.embedding_lookup(embedding_table, class_ids), detection_boxes], axis=-1)  # (1, 64, 508) + (1, 64, 4) -> (1, 64, 512)
+
+    imagenet_features = image_features_extract_model(img2)
+    imagenet_features = tf.reshape(imagenet_features, (imagenet_features.shape[0], -1, imagenet_features.shape[3]))  # (1, 64, 2048)
+
+    concatenated_feature = tf.concat([imagenet_features, frcnn_features], axis=-1)  # (1, 64, 2048) + (1, 64, 512) -> (1, 64, 2560)
+
+    return concatenated_feature
+
 
 # Disk-caching the features extracted from pre-trained model
 # You just have got to do this once
-# for img, path in tqdm(image_dataset):
-#     batch_features = image_features_extract_model(img)
-#     batch_features = tf.reshape(batch_features, (batch_features.shape[0], -1, batch_features.shape[3]))
+# for img1, img2, path in tqdm(image_dataset):
 #
-#     for bf, p in zip(batch_features, path):
+#     extracted_feature = extract_feature(img1, img2)
+#
+#     for bf, p in zip(extracted_feature, path):
 #         path_of_feature = p.numpy().decode("utf-8")
 #         np.save(path_of_feature, bf.numpy())
+#
+# assert False
 
 # Choose the top 5000 words from the vocabulary
 num_words = 20000
@@ -213,7 +249,7 @@ img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vec
 EPOCHS = 10
 REPORT_PER_BATCH = 100
 EPOCHS_TO_SAVE = 1
-BATCH_SIZE = 64
+BATCH_SIZE = 80
 
 BUFFER_SIZE = 20000
 enc_layers = 6
@@ -303,11 +339,11 @@ def accuracy_function(real, pred):
 
 def create_masks(inp, tar):
     # Encoder padding mask
-    enc_padding_mask = create_padding_mask(tf.ones(shape=(tf.shape(inp)[0], tf.shape(inp)[1])))
+    enc_padding_mask = create_padding_mask(tf.ones(shape=(tf.shape(inp)[0], tf.shape(inp)[1] * 2)))
 
     # Used in the 2nd attention block in the decoder.
     # This padding mask is used to mask the encoder outputs.
-    dec_padding_mask = create_padding_mask(tf.ones(shape=(tf.shape(inp)[0], tf.shape(inp)[1])))
+    dec_padding_mask = create_padding_mask(tf.ones(shape=(tf.shape(inp)[0], tf.shape(inp)[1] * 2)))
 
     # Used in the 1st attention block in the decoder.
     # It is used to pad and mask future tokens in the input received by the decoder.
@@ -319,7 +355,7 @@ def create_masks(inp, tar):
 
 
 train_step_signature = [
-    tf.TensorSpec(shape=(None, 121, 1792), dtype=tf.float32),
+    tf.TensorSpec(shape=(None, 64, 2560), dtype=tf.float32),
     tf.TensorSpec(shape=(None, None), dtype=tf.int32)
 ]
 
@@ -349,7 +385,7 @@ def train_step(inp, tar):
 checkpoint_path = "./checkpoints/train"
 ckpt = tf.train.Checkpoint(transformoer=transformer,
                            optimizer=optimizer)
-ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
+ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=20)
 
 start_epoch = 0
 if ckpt_manager.latest_checkpoint:
@@ -403,19 +439,19 @@ plt.show()
 
 
 def evaluate(image):
-    encoder_input = tf.expand_dims(load_image(image)[0], 0)  # Expand batch axis
-    encoder_input = image_features_extract_model(encoder_input)
-    encoder_input = tf.reshape(encoder_input, (encoder_input.shape[0], -1, encoder_input.shape[3]))
+    img1, img2, _ = load_image(image)
+
+    extracted_feature = extract_feature(img1[tf.newaxis, ...], img2[tf.newaxis, ...])
 
     # as the target is english, the first word to the transformer should be the english start token.
     decoder_input = [tokenizer.word_index['<start>']]
     output = tf.expand_dims(decoder_input, 0)
 
     for i in range(MAX_LENGTH):
-        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(encoder_input, output)
+        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(extracted_feature, output)
 
         # predictions.shape == (batch_size, seq_len, vocab_size)
-        predictions = transformer(encoder_input,
+        predictions = transformer(extracted_feature,
                                   output,
                                   False,
                                   enc_padding_mask,

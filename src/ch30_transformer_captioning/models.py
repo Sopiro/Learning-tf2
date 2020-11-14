@@ -18,9 +18,9 @@ class Encoder(tf.keras.layers.Layer):
         self.d_model = d_model
         self.num_layers = num_layers
 
-        self.embedding = tf.keras.layers.Dense(d_model)
+        self.dense1 = tf.keras.layers.Dense(d_model)
+        self.dense2 = tf.keras.layers.Dense(d_model)
         self.relu = tf.keras.layers.ReLU()
-        self.bnorm = tf.keras.layers.BatchNormalization()
         self.pos_encoding = positional_encoding(maximum_position_encoding, self.d_model)
 
         # Stacking encoder layers
@@ -29,22 +29,21 @@ class Encoder(tf.keras.layers.Layer):
         self.dropout = tf.keras.layers.Dropout(dropout_rate)
 
     def call(self, x, training, mask):
-        # x.shape == (batch_size, image_feature_len:110, feature_dim)
+        # x.shape == (batch_size, image_feature_len:64, feature_dim:2048+512=2560)
         seq_len = tf.shape(x)[1]
 
-        # Adding embedding and position encoding.
-        x = self.embedding(x)  # (batch_size, input_seq_len, d_model)
-        x = self.relu(x)
-        x = self.bnorm(x)
-        # x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))  # Scaling for normalization
-        x += self.pos_encoding[:, :seq_len, :]  # Broadcasting works here
+        xi = self.dense1(x[:, :, :2048]) + self.pos_encoding[:, :seq_len, :]  # shape == (batch_size, image_feature_len, d_model)
+        xf = self.dense2(x[:, :, 2048:])  # shape == (batch_size, image_feature_len, d_model)
+
+        x = tf.concat([xi, xf], axis=1)  # shape == (batch_size, image_feature_len*2:128, d_model)
+        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))  # Scaling for normalization
 
         x = self.dropout(x, training=training)
 
         for i in range(self.num_layers):
             x = self.enc_layers[i](x, training, mask)
 
-        return x  # (batch_size, input_seq_len, d_model)
+        return x  # (batch_size, input_seq_len*2, d_model)
 
 
 class Decoder(tf.keras.layers.Layer):
@@ -93,11 +92,11 @@ class Transformer(tf.keras.Model):
         """
         Transformer network
 
-        :param num_layers: Number of encoder, decoder stacks
+        :param enc_layers: Number of encoder, decoder stacks
+        :param dec_layers: Number of decoder, decoder stacks
         :param d_model: Model's dimension, Word's embedding dimension
         :param num_heads: Number of heads for Multi-head attention
         :param dff: Point-wise feed forward network units
-        :param input_vocab_size: Input space vocabulary size
         :param target_vocab_size: Target space vocabulary size
         :param pe_input: Input's maximum positional encoding dimension
         :param pe_target: Target's maximum positional encoding dimension
@@ -111,7 +110,7 @@ class Transformer(tf.keras.Model):
         self.final_layer = tf.keras.layers.Dense(target_vocab_size)
 
     def call(self, input_data, target_data, training, enc_padding_mask, look_ahead_mask, dec_padding_mask):
-        # input_data.shape == (batch_size, 64, 2048)
+        # input_data.shape == (batch_size, feature_len:64, feature_dim:2048+512)
         # target_data.shape == (batch_size, seq_len)
         # enc_output.shape == (batch_size, inp_seq_len, d_model)
         enc_output = self.encoder(input_data, training, enc_padding_mask)

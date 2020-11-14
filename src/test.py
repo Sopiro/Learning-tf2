@@ -179,11 +179,12 @@ import pandas as pd
 
 from ch30_transformer_captioning.models import *
 
-learning_rate = CustomSchedule(512)
-plt.plot(learning_rate(tf.range(40000, dtype=tf.float32)))
-plt.ylabel("Learning Rate")
-plt.xlabel("Train Step")
-plt.show()
+#
+# learning_rate = CustomSchedule(512)
+# plt.plot(learning_rate(tf.range(40000, dtype=tf.float32)))
+# plt.ylabel("Learning Rate")
+# plt.xlabel("Train Step")
+# plt.show()
 
 # loss_object = tf.keras.losses.CategoricalCrossentropy(from_logits=True, reduction='none', label_smoothing=0.1)
 #
@@ -207,3 +208,32 @@ plt.show()
 #
 #
 # print('result', loss_function(a, b))
+
+# from ch30_transformer_captioning.layers import *
+#
+# pe = positional_encoding(256, 10)
+#
+# pe = tf.pad(pe, [[0, 0], [0, 0], [0, 3]])
+#
+# print(pe)
+#
+# a = tf.zeros((2, 10, 13))
+#
+# a += pe[:, :10, :]
+#
+# print(a)
+
+# g = tf.random.Generator.from_seed(1)
+# g.reset_from_seed(1)
+# print(g.uniform((1, 91, 128)))
+# g.reset_from_seed(2)
+# print(g.uniform((1, 91, 128)))
+
+a = tf.reshape(tf.ones(3 * 64 * 2048, dtype=tf.float32), (3, 64, 2048))
+
+b = tf.reshape(tf.zeros(3 * 64 * 2, dtype=tf.float32), (3, 64, 2))
+
+c = tf.concat([a, b], axis=-1)
+
+print(c)
+print(c[:, :, :2049])
