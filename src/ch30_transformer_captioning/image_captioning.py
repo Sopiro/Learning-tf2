@@ -246,7 +246,7 @@ print('Max sentence length :', MAX_LENGTH)
 # Create training and validation sets
 img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vector, cap_vector, test_size=0.1, random_state=0)
 
-EPOCHS = 10
+EPOCHS = 2
 REPORT_PER_BATCH = 100
 EPOCHS_TO_SAVE = 1
 BATCH_SIZE = 80
@@ -385,7 +385,7 @@ def train_step(inp, tar):
 checkpoint_path = "./checkpoints/train"
 ckpt = tf.train.Checkpoint(transformoer=transformer,
                            optimizer=optimizer)
-ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=20)
+ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=50)
 
 start_epoch = 0
 if ckpt_manager.latest_checkpoint:
@@ -421,6 +421,7 @@ for epoch in range(EPOCHS):
 
     if (epoch + 1) % EPOCHS_TO_SAVE == 0:
         ckpt_save_path = ckpt_manager.save()
+        np.save(loss_train_file, loss_train_plot)
         print('Saving checkpoint for epoch {} at {}'.format(current_epoch, ckpt_save_path))
 
     print('Epoch {} Loss {:.6f} Accuracy {:.6f}'.format(current_epoch, train_loss.result(), train_accuracy.result()))
@@ -428,13 +429,10 @@ for epoch in range(EPOCHS):
 
     print('Time taken for {} epoch {} sec\n'.format(current_epoch, time.time() - start))
 
-np.save(loss_train_file, loss_train_plot)
-
 plt.plot(loss_train_plot, 'b', label='train loss')
 plt.legend()
 plt.xlabel('Timestep')
 plt.ylabel('Loss')
-plt.title('Loss Plot')
 plt.show()
 
 
@@ -509,4 +507,6 @@ image_extension = image_url[-4:]
 full_image_path = tf.keras.utils.get_file('image' + image_extension, origin=image_url)
 
 # decode_and_plot(full_image_path)
-decode_and_plot('C:/Users/Sopiro/Desktop/20200825/cut.png')
+decode_and_plot('C:/Users/Sopiro/Desktop/20200825/irene.png')
+decode_and_plot('C:/Users/Sopiro/Desktop/20200825/uchan.jpg')
+decode_and_plot('C:/Users/Sopiro/Desktop/20200825/dnteo.png')
