@@ -10,7 +10,7 @@ import colorsys
 NUM_CLUSTERS = 5
 
 print('reading image')
-img = image_to_numpy.load_image_file('C:/Users/Sopiro/Desktop/20200825/3.jpg')
+img = image_to_numpy.load_image_file('C:/Users/Sopiro/uchan.jpg')
 
 # img = cv2.resize(img, (160, 160))
 ar = np.asarray(img)
@@ -43,5 +43,5 @@ print(hsv_color)
 c = ar.copy()
 for i, code in enumerate(codes):
     c[np.r_[np.where(vecs == i)], :] = code
-imageio.imwrite('clusters.png', c.reshape(*shape).astype(np.uint8))
+imageio.imwrite('clustered_image.png', c.reshape(*shape).astype(np.uint8))
 print('saved clustered image')
