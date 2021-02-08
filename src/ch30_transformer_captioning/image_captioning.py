@@ -246,7 +246,7 @@ print('Max sentence length :', MAX_LENGTH)
 # Create training and validation sets
 img_name_train, img_name_val, cap_train, cap_val = train_test_split(img_name_vector, cap_vector, test_size=0.1, random_state=0)
 
-EPOCHS = 2
+EPOCHS = 7
 REPORT_PER_BATCH = 100
 EPOCHS_TO_SAVE = 1
 BATCH_SIZE = 80
